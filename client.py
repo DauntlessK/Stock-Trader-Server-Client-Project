@@ -27,3 +27,5 @@ def handle_interaction (client):
     TODO: Add proper interaction between server and client
     :return:
     """
+    
+connect_to_server()
