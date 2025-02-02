@@ -1,5 +1,6 @@
 import socket
 
+SERVER_ADDRESS = "" # IP of server
 SERVER_PORT = 7715  # Chosen port number
 
 def connect_to_server ():
