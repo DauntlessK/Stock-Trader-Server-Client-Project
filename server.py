@@ -7,9 +7,11 @@ locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 SERVER_PORT = 7715  # Chosen port number
 STOCK_RECORDS_FILE = "stocks.csv"
 USER_RECORDS_FILE = "users.csv"
+MARKET_RECORDS_FILE = "market.csv"
 
-stock_records = []
-user_records = []
+stock_records = []          #List of stocks owned by users
+user_records = []           #List of users
+market_records = []         #List of stocks available to buy
 
 
 def run_server():
@@ -22,6 +24,7 @@ def run_server():
     print("Server is running on port", SERVER_PORT)
     stock_records = loadRecords(STOCK_RECORDS_FILE)
     user_records = loadRecords(USER_RECORDS_FILE)
+    market_records = loadRecords(MARKET_RECORDS_FILE)
 
     while True:
         client_socket, client_address = server_socket.accept()
@@ -40,6 +43,17 @@ def handle_client(client_socket):
     while True:
         command = client_socket.recv(1024).decode().strip()
         print("Command: " + command)
+
+        #Split sent command into array of words and make command variable the first word
+        fullCommand = command.split()
+        command = fullCommand[0]
+
+        # Ensure BUY and SELL is formatted correctly - ensure 4 parameters
+        if command == "BUY" or command == "SELL":
+            valid = validateCommand(client_socket, command, fullCommand)
+            if valid == False:
+                break
+
         match (command):
             case "MSGGET":
                 handle_msgget(client_socket)
@@ -49,11 +63,14 @@ def handle_client(client_socket):
                 handle_balance(client_socket)
             case "LIST":
                 handle_list(client_socket)
+            case "MARKET":
+                handle_market(client_socket)
             case "BUY":
-                handle_buy(client_socket)
+                handle_buy(client_socket, fullCommand)
             case "SELL":
-                handle_sell(client_socket)
+                handle_sell(client_socket, fullCommand)
             case _:
+                handle_unknownCommand(client_socket, command)
                 break
 
 
@@ -102,6 +119,7 @@ def handle_list(client_socket):
     print("Received: LIST")
     client_socket.send("200 OK\n".encode())
 
+    #Create string of all records of owned stocks in database
     toSend = "The list of records in the Stocks database for user 1:\n"
     count = 0
     for record in stock_records:
@@ -112,11 +130,131 @@ def handle_list(client_socket):
                       str(cost) + " " + str(record["user_id"]) + "\n"
     client_socket.send(toSend.encode())
 
-def handle_buy(client_socket):
+def handle_market(client_socket):
+    """
+    Responsible for displaying the list of currently available stocks to purchase on the market
+    :param client_socket:
+    :return:
+    """
+    print("Received: MARKET")
+    client_socket.send("200 OK\n".encode())
+
+    #Create string of all stocks available for purchase
+    toSend = "The current market has these stocks available:\n"
+    for record in market_records:
+        cost = locale.currency(record["stock_price"], grouping=True)
+        toSend += str(record["ID"]) + "  " + record["stock_symbol"] + " " + record["stock_name"] + " - $" +\
+                  str(cost) + "\n"
+    client_socket.send(toSend.encode())
+
+def handle_buy(client_socket, params):
     pass
+
 
 def handle_sell(client_socket):
     pass
+
+def handle_invalid(client_socket, command, details):
+    print(f"Received: Invalid command {command}")
+    client_socket.send(f"403 Message Format Error\n{details}".encode())
+
+def handle_unknownCommand(client_socket, command):
+    print("Received Unknown Command: " + command)
+    client_socket.send("400 Invalid Command\n".encode())
+
+def validateCommand(client_socket, command, fullCommand):
+    """
+    Makes sure the given command, BUY or SELL is in the correct format, while also ensuring the user can
+    actually buy or sell whatever it is they're trying to buy or sell.
+    :param client_socket:
+    :param command: string
+    :param fullCommand: array
+    :return: True if buy or sell command CAN be performed
+    """
+    #Check for valid # of params (should be 4)
+    if (len(fullCommand)) != 4:
+        command = "INVALID"
+        details = f"Invalid {command} command. Please format as: 'BUY STK 3 1' \n " +\
+                  f"Where {command} is the command, STK is the symbol, 3 is # of shares, and 1 is your user ID."
+        handle_invalid(client_socket, command, details)
+        return False
+
+    #Check each parameter-------
+    #Check stock symbol
+    stockToBuy = fullCommand[1]
+    if not isValidStock(stockToBuy):
+        command = "INVALID"
+        details = f"Invalid {command} command. Stock {fullCommand[1]} does not exist."
+        handle_invalid(client_socket, command, details)
+        return False
+
+    #Check share count purchase
+    try:
+        shares = int(fullCommand[2])
+    except:
+        command = "INVALID"
+        details = f"Invalid {command} command. Enter valid # of shares to purchase."
+        handle_invalid(client_socket, command, details)
+        return False
+    #Check valid user
+    try:
+        user = int(fullCommand[3])
+        if not isValidUser(user):
+            command = "INVALID"
+            details = f"Invalid {command} command. User {user} does not exist."
+            handle_invalid(client_socket, command, details)
+            return False
+    except:
+        command = "INVALID"
+        details = f"Invalid {command} command. Enter valid # for the user."
+        handle_invalid(client_socket, command, details)
+        return False
+
+    #For buy, ensure buyer has enough money
+    moneyRequired = shares * market_records[stockToBuy]["stock_price"]
+    if user_records[user]["usd_balance"] < moneyRequired:
+        command = "INVALID"
+        details = f"Invalid {command} command. User does not have enough $."
+        handle_invalid(client_socket, command, details)
+        return False
+
+    #For sell, ensure the user actually owns that stock and that amount of shares
+    numSharesOwned = 0
+    for transaction in stock_records:
+        if transaction["stock_symbol"] == stockToBuy and transaction["user_id"] == user:
+            numSharesOwned += 1
+    if numSharesOwned == 0:
+        command = "INVALID"
+        details = f"Invalid {command} command. User does not have any shares of {stockToBuy}."
+        handle_invalid(client_socket, command, details)
+        return False
+    return True
+
+
+
+def isValidStock(stockToCheck):
+    """
+    Checks if the given stock symbol exists in the market (market csv)
+    :param stockToCheck: string symbol "AAPL"
+    :return: True if the ticker is in the market csv
+    """
+    for stock in market_records:
+        if stock["stock_symbol"] == stockToCheck:
+            return True
+    return False
+
+def isValidUser(userToCheck):
+    """
+    Checks if the given user exists in the users database)
+    :param user: int user #
+    :return: True if the user is in the users csv
+    """
+    for user in user_records:
+        #Convert to string in order to compare
+        strUser = str(userToCheck)
+        if user["ID"] == userToCheck:
+            return True
+    return False
 
 
 def loadRecords(f):
