@@ -1,6 +1,10 @@
 import socket
+import csv
 
 SERVER_PORT = 7715  # Chosen port number
+STOCK_RECORDS_FILE = "stocks.csv"
+USER_RECORDS_FILE = "users.csv"
+
 
 def run_server():
     """
@@ -10,6 +14,8 @@ def run_server():
     server_socket.bind(("localhost", SERVER_PORT))
     server_socket.listen(1)
     print("Server is running on port", SERVER_PORT)
+    #stock_records = loadRecords(STOCK_RECORDS_FILE)
+    user_records = loadRecords(USER_RECORDS_FILE)
 
     while True:
         client_socket, client_address = server_socket.accept()
@@ -55,5 +61,18 @@ def handle_msgstore(client_socket):
     client_socket.send("200 OK\n".encode())
     new_message = client_socket.recv(1024).decode().strip()
     print("Received new message:", new_message)
+
+def loadRecords(f):
+    """
+    Loads records from file into a list of dictionary
+    :return: List of Dictionaries (each element of list is 1 dictionary record)
+    """
+    with open(f, 'r') as file:
+        csv_reader = csv.DictReader(file)
+        data = [row for row in csv_reader]
+    print(data)
+
+def createRecord():
+    pass
 
 run_server()
