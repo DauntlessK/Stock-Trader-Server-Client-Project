@@ -14,7 +14,7 @@ def run_server():
     server_socket.bind(("localhost", SERVER_PORT))
     server_socket.listen(1)
     print("Server is running on port", SERVER_PORT)
-    #stock_records = loadRecords(STOCK_RECORDS_FILE)
+    stock_records = loadRecords(STOCK_RECORDS_FILE)
     user_records = loadRecords(USER_RECORDS_FILE)
 
     while True:
@@ -64,13 +64,42 @@ def handle_msgstore(client_socket):
 
 def loadRecords(f):
     """
-    Loads records from file into a list of dictionary
-    :return: List of Dictionaries (each element of list is 1 dictionary record)
+    Loads records from file into a list of dictionaries.
+    (Each element of the list created is 1 dictionary record)
+    :return: List of Dictionaries
     """
     with open(f, 'r') as file:
         csv_reader = csv.DictReader(file)
-        data = [row for row in csv_reader]
-    print(data)
+        recordCount = 1
+        data = []
+        for row in csv_reader:
+            row["ID"] = recordCount
+            recordCount += 1
+            if (f == USER_RECORDS_FILE):
+                row["usd_balance"] = int(row["usd_balance"])
+            elif (f == STOCK_RECORDS_FILE):
+                row["stock_balance"] = float(row["stock_balance"])
+                row["user_id"] = int(row["user_id"])
+            data.append(row)
+
+    #check if blank - if blank and creating user list then add default user
+    if len(data) == 0 and f == USER_RECORDS_FILE:
+        data = [{
+            "ID" : 1,
+            "first_name" : "fname",
+            "last_name" : "lname",
+            "user_name": "username",
+            "password" : "admin",
+            "usd_balance" : 100}]
+    #check if blank - if blank and creating stock list then add default stock
+    elif len(data) == 0 and f == STOCK_RECORDS_FILE:
+        data = [{
+            "ID": 1,
+            "stock_symbol": "DEF",
+            "stock_name": "Default",
+            "stock_balance": 3.70,
+            "user_id": 1}]
+    return data
 
 def createRecord():
     pass
