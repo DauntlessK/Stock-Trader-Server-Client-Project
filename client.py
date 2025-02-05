@@ -19,10 +19,63 @@ def connect_to_server ():
     print("Disconnected from the server port", SERVER_PORT)
 
 
+def handle_messages(client_input, client):
+    #handles commands with two message interactions
+    client.send(client_input.encode())
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+
+
+
+def handle_buy(client_input, client):
+    client.send(client_input.encode())
+    information = client.recv(1024).decode().strip()
+    first_msg = information.split()
+    if first_msg[0] == "403":
+        print(information, '\n')
+    else:
+        pass #Needs implementation first
+
+
+def handle_sell(client_input, client):
+    client.send(client_input.encode())
+    information = client.recv(1024).decode().strip()
+    first_msg = information.split()
+    if first_msg[0] == "403":
+        print(information, '\n')
+    else:
+        pass  # Needs implementation first
+
+
+def handle_shutdown(client_input, client):
+    #Handles the shutdown which lets server know it wants to disconnect
+    client.send(client_input.encode())
+    new_message = client.recv(1024).decode().strip()
+    print(new_message)
+
+
 def handle_interaction (client):
     #Determines what the client input is and sends messages and info according to the input
     while True:
         client_input = input ("Enter Input: ")
+        first_command = client_input.split()
+
+        match (first_command[0]):
+            case "BALANCE" | "LIST" | "MARKET":
+                handle_messages(client_input, client)
+            case "BUY":
+                handle_buy(client_input, client)
+            case "SELL":
+                handle_sell(client_input, client)
+            case "SHUTDOWN":
+                handle_shutdown(client_input, client)
+            case "QUIT":
+                break
+            case _:
+                print("Invalid Command", '\n')
+
         if client_input == "MSGGET":
             #The message is sent then it receives a message from server
             client.send(client_input.encode())
@@ -35,12 +88,6 @@ def handle_interaction (client):
             print(message_received)
             new_msg = input ("Enter message to store: ")
             client.send(new_msg.encode())
-        else:
-            break
 
-    """
-    Handles interations with the server
-    TODO: Add proper interaction between server and client
-    :return:
-    """
+
 connect_to_server()

@@ -1,6 +1,7 @@
 import socket
 import csv
 import locale
+from pickle import GLOBAL
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 
@@ -22,6 +23,9 @@ def run_server():
     server_socket.bind(("localhost", SERVER_PORT))
     server_socket.listen(1)
     print("Server is running on port", SERVER_PORT)
+    global stock_records
+    global user_records
+    global market_records
     stock_records = loadRecords(STOCK_RECORDS_FILE)
     user_records = loadRecords(USER_RECORDS_FILE)
     market_records = loadRecords(MARKET_RECORDS_FILE)
@@ -142,7 +146,7 @@ def handle_market(client_socket):
     #Create string of all stocks available for purchase
     toSend = "The current market has these stocks available:\n"
     for record in market_records:
-        cost = locale.currency(record["stock_price"], grouping=True)
+        cost = locale.currency(float(record["stock_price"]), grouping=True)
         toSend += str(record["ID"]) + "  " + record["stock_symbol"] + " " + record["stock_name"] + " - $" +\
                   str(cost) + "\n"
     client_socket.send(toSend.encode())
@@ -151,7 +155,7 @@ def handle_buy(client_socket, params):
     pass
 
 
-def handle_sell(client_socket):
+def handle_sell(client_socket, params):
     pass
 
 def handle_invalid(client_socket, command, details):
@@ -161,6 +165,13 @@ def handle_invalid(client_socket, command, details):
 def handle_unknownCommand(client_socket, command):
     print("Received Unknown Command: " + command)
     client_socket.send("400 Invalid Command\n".encode())
+
+
+def find_stock(stockToBuy):
+    for record in market_records:
+        if record["stock_symbol"] == stockToBuy:
+            return record
+
 
 def validateCommand(client_socket, command, fullCommand):
     """
@@ -211,24 +222,28 @@ def validateCommand(client_socket, command, fullCommand):
         return False
 
     #For buy, ensure buyer has enough money
-    moneyRequired = shares * market_records[stockToBuy]["stock_price"]
-    if user_records[user]["usd_balance"] < moneyRequired:
-        command = "INVALID"
-        details = f"Invalid {command} command. User does not have enough $."
-        handle_invalid(client_socket, command, details)
-        return False
+    if fullCommand[0] == "BUY":
+        current_stock = find_stock(stockToBuy)
+        moneyRequired = shares * float(current_stock["stock_price"])
+        val = user_records[user - 1]["usd_balance"]
+        if  val < moneyRequired:
+            command = "INVALID"
+            details = f"Invalid {command} command. User does not have enough $."
+            handle_invalid(client_socket, command, details)
+            return False
 
     #For sell, ensure the user actually owns that stock and that amount of shares
-    numSharesOwned = 0
-    for transaction in stock_records:
-        if transaction["stock_symbol"] == stockToBuy and transaction["user_id"] == user:
-            numSharesOwned += 1
-    if numSharesOwned == 0:
-        command = "INVALID"
-        details = f"Invalid {command} command. User does not have any shares of {stockToBuy}."
-        handle_invalid(client_socket, command, details)
-        return False
-    return True
+    if fullCommand[0] == "SELL":
+        numSharesOwned = 0
+        for transaction in stock_records:
+            if transaction["stock_symbol"] == stockToBuy and transaction["user_id"] == user:
+                numSharesOwned += 1
+        if numSharesOwned == 0:
+            command = "INVALID"
+            details = f"Invalid {command} command. User does not have any shares of {stockToBuy}."
+            handle_invalid(client_socket, command, details)
+            return False
+        return True
 
 
 

@@ -1,10 +1,10 @@
 ID,stock_symbol,stock_name,stock_price
 1,AAPL,Apple Inc.,449.50
 2,IBM,International Business Machines Corp.,264.46
-3,MSFT,Microsoft, 122.38
+3,MSFT,Microsoft,122.38
 4,AMZN,Amazon.com,242.06
-5,NFLX,Netflix Inc., 994.87
-6,F,Ford Motor Company, 10.16
+5,NFLX,Netflix Inc.,994.87
+6,F,Ford Motor Company,10.16
 7,AMD,Advanced Mirco Devices Inc.,119.50
 8,ROKU,Roku Inc.,80.16
 9,RKT,Rocket Companies,12.17
