@@ -1,9 +1,15 @@
 import socket
 import csv
+import locale
+
+locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
 
 SERVER_PORT = 7715  # Chosen port number
 STOCK_RECORDS_FILE = "stocks.csv"
 USER_RECORDS_FILE = "users.csv"
+
+stock_records = []
+user_records = []
 
 
 def run_server():
@@ -33,12 +39,23 @@ def handle_client(client_socket):
     """
     while True:
         command = client_socket.recv(1024).decode().strip()
-        if command == "MSGGET":
-            handle_msgget(client_socket)
-        elif command == "MSGSTORE":
-            handle_msgstore(client_socket)
-        else:
-            break
+        print("Command: " + command)
+        match (command):
+            case "MSGGET":
+                handle_msgget(client_socket)
+            case "MSGSTORE":
+                handle_msgstore(client_socket)
+            case "BALANCE":
+                handle_balance(client_socket)
+            case "LIST":
+                handle_list(client_socket)
+            case "BUY":
+                handle_buy(client_socket)
+            case "SELL":
+                handle_sell(client_socket)
+            case _:
+                break
+
 
 def handle_msgget(client_socket):
     """
@@ -61,6 +78,46 @@ def handle_msgstore(client_socket):
     client_socket.send("200 OK\n".encode())
     new_message = client_socket.recv(1024).decode().strip()
     print("Received new message:", new_message)
+
+def handle_balance(client_socket):
+    """
+    Responsible for displaying the balance in USD for the user.
+    :param client_socket:
+    :return:
+    """
+    print("Received: BALANCE")
+    client_socket.send("200 OK\n".encode())
+
+    fullName = user_records[0]["first_name"] + " " + user_records[0]["last_name"]
+    formatted_balance = locale.currency(user_records[0]["usd_balance"], grouping=True)
+    bal = str(formatted_balance)
+    client_socket.send(f"Balance for user {fullName}: ${bal}\n".encode())
+
+def handle_list(client_socket):
+    """
+    Responsible for displaying the list of stocks the user owns.
+    :param client_socket:
+    :return:
+    """
+    print("Received: LIST")
+    client_socket.send("200 OK\n".encode())
+
+    toSend = "The list of records in the Stocks database for user 1:\n"
+    count = 0
+    for record in stock_records:
+        if (record["user_id"] == 1):
+            count += 1
+            cost = locale.currency(record["stock_balance"], grouping=True)
+            toSend += str(count) + "  " + record["stock_symbol"] + " " + record["shares"] + " @ $" +\
+                      str(cost) + " " + str(record["user_id"]) + "\n"
+    client_socket.send(toSend.encode())
+
+def handle_buy(client_socket):
+    pass
+
+def handle_sell(client_socket):
+    pass
+
 
 def loadRecords(f):
     """
@@ -97,11 +154,10 @@ def loadRecords(f):
             "ID": 1,
             "stock_symbol": "DEF",
             "stock_name": "Default",
+            "shares": 1,
             "stock_balance": 3.70,
             "user_id": 1}]
+    print(data[1]["ID"])
     return data
-
-def createRecord():
-    pass
 
 run_server()
