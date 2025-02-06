@@ -56,7 +56,7 @@ def handle_client(client_socket):
         if command == "BUY" or command == "SELL":
             valid = validateCommand(client_socket, command, fullCommand)
             if valid == False:
-                break
+                continue
 
         match (command):
             case "MSGGET":
@@ -73,9 +73,10 @@ def handle_client(client_socket):
                 handle_buy(client_socket, fullCommand)
             case "SELL":
                 handle_sell(client_socket, fullCommand)
+            case "SHUTDOWN":
+                break
             case _:
                 handle_unknownCommand(client_socket, command)
-                break
 
 
 def handle_msgget(client_socket):
@@ -112,7 +113,7 @@ def handle_balance(client_socket):
     fullName = user_records[0]["first_name"] + " " + user_records[0]["last_name"]
     formatted_balance = locale.currency(user_records[0]["usd_balance"], grouping=True)
     bal = str(formatted_balance)
-    client_socket.send(f"Balance for user {fullName}: ${bal}\n".encode())
+    client_socket.send(f"Balance for user {fullName}: {bal}\n".encode())
 
 def handle_list(client_socket):
     """
@@ -130,7 +131,7 @@ def handle_list(client_socket):
         if (record["user_id"] == 1):
             count += 1
             cost = locale.currency(record["stock_balance"], grouping=True)
-            toSend += str(count) + "  " + record["stock_symbol"] + " " + record["shares"] + " @ $" +\
+            toSend += str(count) + "  " + record["stock_symbol"] + " " + record["shares"] + " @ " +\
                       str(cost) + " " + str(record["user_id"]) + "\n"
     client_socket.send(toSend.encode())
 
@@ -147,7 +148,7 @@ def handle_market(client_socket):
     toSend = "The current market has these stocks available:\n"
     for record in market_records:
         cost = locale.currency(float(record["stock_price"]), grouping=True)
-        toSend += str(record["ID"]) + "  " + record["stock_symbol"] + " " + record["stock_name"] + " - $" +\
+        toSend += str(record["ID"]) + "  " + record["stock_symbol"] + " " + record["stock_name"] + " - " +\
                   str(cost) + "\n"
     client_socket.send(toSend.encode())
 
@@ -310,7 +311,6 @@ def loadRecords(f):
             "shares": 1,
             "stock_balance": 3.70,
             "user_id": 1}]
-    print(data[1]["ID"])
     return data
 
 run_server()
