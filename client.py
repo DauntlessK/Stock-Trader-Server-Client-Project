@@ -32,22 +32,12 @@ def handle_messages(client_input, client):
 def handle_buy(client_input, client):
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
-    first_msg = information.split()
-    if first_msg[0] == "403":
-        print(information, '\n')
-    else:
-        pass #Needs implementation first
-
+    print(information, '\n')
 
 def handle_sell(client_input, client):
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
-    first_msg = information.split()
-    if first_msg[0] == "403":
-        print(information, '\n')
-    else:
-        pass  # Needs implementation first
-
+    print(information, '\n')
 
 def handle_shutdown(client_input, client):
     #Handles the shutdown which lets server know it wants to disconnect
@@ -59,6 +49,8 @@ def handle_shutdown(client_input, client):
 def handle_interaction (client):
     #Determines what the client input is and sends messages and info according to the input
     while True:
+        print("Please enter input, commands Available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT", '\n')
+        print("Buy and sell structure: BUY/SELL StockSymbol Shares UserID", '\n')
         client_input = input ("Enter Input: ")
         first_command = client_input.split()
 

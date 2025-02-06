@@ -153,7 +153,7 @@ def handle_market(client_socket):
                   str(cost) + "\n"
     client_socket.send(toSend.encode())
 
-def handle_buy(client_socket, params):
+def handle_buy(client_socket, params, stock_str=None):
     stock_symbol = params[1]
     shares = int(params[2])
     user = int(params[3])
@@ -165,17 +165,22 @@ def handle_buy(client_socket, params):
     recordCreated = False
     for record in stock_records:
         if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
-            record["shares"] += shares
+            number_shares = record["shares"]
+            total_shares = shares + int(number_shares)
+            record["shares"] = str(total_shares)
             recordCreated = True
     # create array of stock info to insert if existing record was not created
     if not recordCreated:
         stockToBuy = [len(stock_records) + 1, stock["stock_symbol"], stock["stock_name"], shares, stock["stock_price"], user]
-    # insert into stock
-    stock_records.append(stockToBuy)
+        # insert into stock
+        stock_records.append(stockToBuy)
 
     #update user's usd balance
     moneyRequired = shares * stock["stock_price"]
     changeFunds("ADD", moneyRequired, user)
+
+    #Send success message
+    client_socket.send("Successful Buy".encode())
 
     #DEBUG ONLY
     print(stock_records)
@@ -191,7 +196,9 @@ def handle_sell(client_socket, params):
     # find record
     for record in stock_records:
         if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
-            record["shares"] -= shares
+            total_share = record["shares"]
+            current_shares = int(total_share) - shares
+            record["shares"] = str(current_shares)
         if record["shares"] == 0:
             indexToDelete = stock["ID"] - 1
             del stock_records[stock["ID"]]
@@ -199,6 +206,9 @@ def handle_sell(client_socket, params):
     #update user's usd balance
     moneyOwed = shares * stock["stock_price"]
     changeFunds("SUBTRACT", moneyOwed, user)
+
+    #send success message
+    client_socket.send("Successful sell".encode())
 
     #DEBUG ONLY
     print(stock_records)
