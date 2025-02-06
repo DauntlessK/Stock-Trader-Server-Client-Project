@@ -1,6 +1,7 @@
 import socket
 import csv
 import locale
+import pandas as pd
 from pickle import GLOBAL
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
@@ -46,7 +47,6 @@ def handle_client(client_socket):
     """
     while True:
         command = client_socket.recv(1024).decode().strip()
-        print("Command: " + command)
 
         #Split sent command into array of words and make command variable the first word
         fullCommand = command.split()
@@ -74,6 +74,7 @@ def handle_client(client_socket):
             case "SELL":
                 handle_sell(client_socket, fullCommand)
             case "SHUTDOWN":
+                handle_shutdown(client_socket)
                 break
             case _:
                 handle_unknownCommand(client_socket, command)
@@ -154,10 +155,10 @@ def handle_market(client_socket):
 
 def handle_buy(client_socket, params):
     stock_symbol = params[1]
-    shares = params[2]
-    user = params[3]
+    shares = int(params[2])
+    user = int(params[3])
     stock = find_stock(stock_symbol)
-    print(f"Received: BUY {stock} {shares} {user}")
+    print(f"Received: BUY {stock_symbol} {shares} {user}")
 
     # First, check to see if the user already owns at least one share of that stock
     # If so, simply add more shares to that record
@@ -173,7 +174,7 @@ def handle_buy(client_socket, params):
     stock_records.append(stockToBuy)
 
     #update user's usd balance
-    moneyRequired = shares * float(stock["stock_price"])
+    moneyRequired = shares * stock["stock_price"]
     changeFunds("ADD", moneyRequired, user)
 
     #DEBUG ONLY
@@ -182,8 +183,8 @@ def handle_buy(client_socket, params):
 
 def handle_sell(client_socket, params):
     stock_symbol = params[1]
-    shares = params[2]
-    user = params[3]
+    shares = int(params[2])
+    user = int(params[3])
     stock = find_stock(stock_symbol)
     print(f"Received: SELL {stock} {shares} {user}")
 
@@ -196,18 +197,18 @@ def handle_sell(client_socket, params):
             del stock_records[stock["ID"]]
 
     #update user's usd balance
-    moneyOwed = shares * float(stock["stock_price"])
+    moneyOwed = shares * stock["stock_price"]
     changeFunds("SUBTRACT", moneyOwed, user)
 
     #DEBUG ONLY
     print(stock_records)
 
 def changeFunds(type, cost, user):
-    currentMoney = user_records[user + 1]["usd_balance"]
+    currentMoney = user_records[user - 1]["usd_balance"]
     if (type == "SUBTRACT"):
-        user_records[user + 1]["usd_balance"] = currentMoney - cost
+        user_records[user - 1]["usd_balance"] = currentMoney - cost
     else:
-        user_records[user + 1]["usd_balance"] = currentMoney + cost
+        user_records[user - 1]["usd_balance"] = currentMoney + cost
 
 def handle_invalid(client_socket, command, details):
     print(f"Received: Invalid command {command}")
@@ -347,11 +348,14 @@ def loadRecords(f):
         for row in csv_reader:
             row["ID"] = recordCount
             recordCount += 1
-            if (f == USER_RECORDS_FILE):
+            if f == USER_RECORDS_FILE:
                 row["usd_balance"] = int(row["usd_balance"])
-            elif (f == STOCK_RECORDS_FILE):
+            elif f == STOCK_RECORDS_FILE:
                 row["stock_balance"] = float(row["stock_balance"])
                 row["user_id"] = int(row["user_id"])
+            elif f == MARKET_RECORDS_FILE:
+                row["stock_price"] = float(row["stock_price"])
+
             data.append(row)
 
     #check if blank - if blank and creating user list then add default user
@@ -373,5 +377,11 @@ def loadRecords(f):
             "stock_balance": 3.70,
             "user_id": 1}]
     return data
+
+def handle_shutdown(client_sockt):
+    #write database csv's
+    df = pd.DAtaFrame(user_records)
+    df.to_csv(USER_RECORDS_FILE)
+
 
 run_server()
