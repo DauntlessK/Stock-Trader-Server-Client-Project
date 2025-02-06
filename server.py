@@ -153,11 +153,61 @@ def handle_market(client_socket):
     client_socket.send(toSend.encode())
 
 def handle_buy(client_socket, params):
-    pass
+    stock_symbol = params[1]
+    shares = params[2]
+    user = params[3]
+    stock = find_stock(stock_symbol)
+    print(f"Received: BUY {stock} {shares} {user}")
+
+    # First, check to see if the user already owns at least one share of that stock
+    # If so, simply add more shares to that record
+    recordCreated = False
+    for record in stock_records:
+        if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
+            record["shares"] += shares
+            recordCreated = True
+    # create array of stock info to insert if existing record was not created
+    if not recordCreated:
+        stockToBuy = [len(stock_records) + 1, stock["stock_symbol"], stock["stock_name"], shares, stock["stock_price"], user]
+    # insert into stock
+    stock_records.append(stockToBuy)
+
+    #update user's usd balance
+    moneyRequired = shares * float(stock["stock_price"])
+    changeFunds("ADD", moneyRequired, user)
+
+    #DEBUG ONLY
+    print(stock_records)
 
 
 def handle_sell(client_socket, params):
-    pass
+    stock_symbol = params[1]
+    shares = params[2]
+    user = params[3]
+    stock = find_stock(stock_symbol)
+    print(f"Received: SELL {stock} {shares} {user}")
+
+    # find record
+    for record in stock_records:
+        if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
+            record["shares"] -= shares
+        if record["shares"] == 0:
+            indexToDelete = stock["ID"] - 1
+            del stock_records[stock["ID"]]
+
+    #update user's usd balance
+    moneyOwed = shares * float(stock["stock_price"])
+    changeFunds("SUBTRACT", moneyOwed, user)
+
+    #DEBUG ONLY
+    print(stock_records)
+
+def changeFunds(type, cost, user):
+    currentMoney = user_records[user + 1]["usd_balance"]
+    if (type == "SUBTRACT"):
+        user_records[user + 1]["usd_balance"] = currentMoney - cost
+    else:
+        user_records[user + 1]["usd_balance"] = currentMoney + cost
 
 def handle_invalid(client_socket, command, details):
     print(f"Received: Invalid command {command}")
@@ -169,6 +219,11 @@ def handle_unknownCommand(client_socket, command):
 
 
 def find_stock(stockToBuy):
+    """
+    Finds a given stock in the market list based on the ticker
+    :param stockToBuy: string symbol "("GOOG"
+    :return: the array of the stock
+    """
     for record in market_records:
         if record["stock_symbol"] == stockToBuy:
             return record
@@ -242,6 +297,12 @@ def validateCommand(client_socket, command, fullCommand):
         if numSharesOwned == 0:
             command = "INVALID"
             details = f"Invalid {command} command. User does not have any shares of {stockToBuy}."
+            handle_invalid(client_socket, command, details)
+            return False
+        #Also check if trying to sell more shares than owned
+        elif shares < numSharesOwned:
+            command = "INVALID"
+            details = f"Invalid {command} command. User has only {numSharesOwned}. Cannot sell {shares}"
             handle_invalid(client_socket, command, details)
             return False
         return True
