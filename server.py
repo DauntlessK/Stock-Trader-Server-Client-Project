@@ -44,11 +44,16 @@ def handle_client(client_socket):
     :param client_socket:
     """
     while True:
-        command = client_socket.recv(1024).decode().strip()
+        try:
+            command = client_socket.recv(1024).decode().strip()
+            fullCommand = command.split()
+            command = fullCommand[0]
+        except:
+            print("Connection disconnected")
+            break
 
         #Split sent command into array of words and make command variable the first word
-        fullCommand = command.split()
-        command = fullCommand[0]
+
 
         # Ensure BUY and SELL is formatted correctly - ensure 4 parameters
         if command == "BUY" or command == "SELL":
