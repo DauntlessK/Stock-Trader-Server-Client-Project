@@ -234,7 +234,7 @@ def handle_sell(client_socket, params):
 
     #Send success message
     client_socket.send(f"200 OK\nSOLD {shares} SHARES OF {stock_symbol}. New balance: {newBalance}".encode())
-    
+
 
 def changeFunds(type, cost, user):
     """

@@ -96,15 +96,10 @@ def handle_interaction (client):
                 else:
                     print("SHUTDOWN already called")
             case "SHUTDOWN":
-                if index == 0:
-                    handle_shutdown(client_input, client)
-                else:
-                    print("SHUTDOWN already called")
-            case "QUIT": #Breaks once user has inputted and already has inputed SHUTDOWN
-                if index == 1:
-                    break
-                else:
-                    print("Need to SHUTDOWN first")
+                handle_shutdown(client_input, client)
+                break
+            case "QUIT":
+                sys.exit()
             case _:
                 print("Invalid Command", '\n')
 

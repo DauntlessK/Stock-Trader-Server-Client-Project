@@ -3,3 +3,4 @@ ID,stock_symbol,stock_name,shares,stock_balance,user_id
 2,AMD,Advanced Mirco Devices Inc.,15,119.5,1
 3,RKT,Rocket Companies,10,12.17,1
 4,AAPL,Apple Inc.,2,449.5,1
+5,GOOG,Alphabet Inc.,2,207.71,1
