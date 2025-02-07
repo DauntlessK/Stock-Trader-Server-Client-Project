@@ -77,15 +77,28 @@ def handle_interaction (client):
         client_input = input ("Enter Input: ")
         first_command = client_input.split()
 
+        #Handles commands and error checks
         match (first_command[0]):
             case "BALANCE" | "LIST" | "MARKET":
-                handle_messages(client_input, client)
+                if index == 0:
+                    handle_messages(client_input, client)
+                else:
+                    print("SHUTDOWN already called")
             case "BUY":
-                handle_buy(client_input, client)
+                if index == 0:
+                    handle_buy(client_input, client)
+                else:
+                    print("SHUTDOWN already called")
             case "SELL":
-                handle_sell(client_input, client)
+                if index == 0:
+                    handle_sell(client_input, client)
+                else:
+                    print("SHUTDOWN already called")
             case "SHUTDOWN":
-                handle_shutdown(client_input, client)
+                if index == 0:
+                    handle_shutdown(client_input, client)
+                else:
+                    print("SHUTDOWN already called")
             case "QUIT": #Breaks once user has inputted and already has inputed SHUTDOWN
                 if index == 1:
                     break

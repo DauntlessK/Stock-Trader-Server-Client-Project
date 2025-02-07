@@ -1,5 +1,5 @@
 ID,stock_symbol,stock_name,shares,stock_balance,user_id
-1,AAPL,Apple Inc.,2,449.5,1
+1,AAPL,Apple Inc.,5,449.5,1
 2,IBM,International Business Machines Corp.,1,264.46,2
 3,AMD,Advanced Mirco Devices Inc.,15,119.5,1
 4,RKT,Rocket Companies,10,12.17,1

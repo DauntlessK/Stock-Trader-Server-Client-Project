@@ -389,7 +389,7 @@ def loadRecords(f):
             row["ID"] = recordCount
             recordCount += 1
             if f == USER_RECORDS_FILE:
-                row["usd_balance"] = int(row["usd_balance"])
+                row["usd_balance"] = float(row["usd_balance"])
             elif f == STOCK_RECORDS_FILE:
                 row["stock_balance"] = float(row["stock_balance"])
                 row["user_id"] = int(row["user_id"])
