@@ -1,4 +1,5 @@
 import socket
+import sys
 
 SERVER_ADDRESS = "" # IP of server
 SERVER_PORT = 7715  # Chosen port number
@@ -16,6 +17,7 @@ def connect_to_server ():
     handle_interaction(client_socket)
     client_socket.close()
     print("Disconnected from the server port", SERVER_PORT)
+    sys.exit()
 
 
 def handle_messages(client_input, client):
@@ -30,7 +32,6 @@ def handle_messages(client_input, client):
     print(information, '\n')
     information = client.recv(1024).decode().strip()
     print(information, '\n')
-
 
 
 def handle_buy(client_input, client):

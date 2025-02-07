@@ -126,7 +126,7 @@ def handle_list(client_socket):
         if (record["user_id"] == 1):
             count += 1
             cost = locale.currency(record["stock_balance"], grouping=True)
-            toSend += str(count) + "  " + record["stock_symbol"] + " " + record["shares"] + " @ " +\
+            toSend += str(count) + "  " + record["stock_symbol"] + " " + str(record["shares"]) + " @ " +\
                       str(cost) + " " + str(record["user_id"]) + "\n"
     client_socket.send(toSend.encode())
 
@@ -205,14 +205,25 @@ def handle_sell(client_socket, params):
     print(f"Received: SELL {stock} {shares} {user}")
 
     # find record
+    recordFound = False
     for record in stock_records:
+        #Find record to remove stocks from
         if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
-            total_share = record["shares"]
-            current_shares = int(total_share) - shares
-            record["shares"] = str(current_shares)
-        if record["shares"] == 0 or record["shares"] == '0' or record["shares"] == "0":
-            indexToDelete = stock["ID"] - 1
+            total_shares = record["shares"]
+            current_shares = total_shares - shares
+            record["shares"] = current_shares
+        #after removal, check to see if any shares remain. If not, remove record entirely
+        if record["shares"] == 0:
+            indexToDelete = record["ID"] - 1
             del stock_records[indexToDelete]
+            #Need to renumber records since one was deleted, assuming not the last record
+            if record["ID"] != len(stock_records):
+                newID = 1
+                for newRecord in stock_records:
+                    newRecord["ID"] = newID
+                    newID += 1
+        if recordFound:
+            break
 
     #update user's usd balance
     moneyOwed = shares * stock["stock_price"]
@@ -223,6 +234,7 @@ def handle_sell(client_socket, params):
 
     #Send success message
     client_socket.send(f"200 OK\nSOLD {shares} SHARES OF {stock_symbol}. New balance: {newBalance}".encode())
+    
 
 def changeFunds(type, cost, user):
     """
@@ -393,6 +405,7 @@ def loadRecords(f):
                 row["usd_balance"] = float(row["usd_balance"])
             elif f == STOCK_RECORDS_FILE:
                 row["stock_balance"] = float(row["stock_balance"])
+                row["shares"] = int(row["shares"])
                 row["user_id"] = int(row["user_id"])
             elif f == MARKET_RECORDS_FILE:
                 row["stock_price"] = float(row["stock_price"])
