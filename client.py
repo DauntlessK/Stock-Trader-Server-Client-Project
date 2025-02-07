@@ -49,7 +49,7 @@ def handle_shutdown(client_input, client):
 def handle_interaction (client):
     #Determines what the client input is and sends messages and info according to the input
     while True:
-        print("Please enter input, commands Available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT", '\n')
+        print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT")
         print("Buy and sell structure: BUY/SELL StockSymbol Shares UserID", '\n')
         client_input = input ("Enter Input: ")
         first_command = client_input.split()

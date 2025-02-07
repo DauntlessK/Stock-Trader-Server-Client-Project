@@ -1,7 +1,7 @@
 import socket
 import csv
 import locale
-import pandas as pd
+from io import StringIO
 from pickle import GLOBAL
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
@@ -184,13 +184,13 @@ def handle_buy(client_socket, params, stock_str=None):
 
     #update user's usd balance
     moneyRequired = shares * stock["stock_price"]
-    changeFunds("SUBTRACT", moneyRequired, user)
+    newBalance = changeFunds("SUBTRACT", moneyRequired, user)
+    newBalance = locale.currency(newBalance, grouping=True)
+    newBalance = str(newBalance)
+    shares = str(shares)
 
     #Send success message
-    client_socket.send("Successful Buy".encode())
-
-    #DEBUG ONLY
-    print(stock_records)
+    client_socket.send(f"200 OK\nBOUGHT {shares} SHARES OF {stock_symbol}. New balance: {newBalance}".encode())
 
 
 def handle_sell(client_socket, params):
@@ -212,20 +212,28 @@ def handle_sell(client_socket, params):
 
     #update user's usd balance
     moneyOwed = shares * stock["stock_price"]
-    changeFunds("ADD", moneyOwed, user)
+    newBalance = changeFunds("ADD", moneyOwed, user)
+    newBalance = locale.currency(newBalance, grouping=True)
+    newBalance = str(newBalance)
+    shares = str(shares)
 
-    #send success message
-    client_socket.send("Successful sell".encode())
-
-    #DEBUG ONLY
-    print(stock_records)
+    #Send success message
+    client_socket.send(f"200 OK\nSOLD {shares} SHARES OF {stock_symbol}. New balance: {newBalance}".encode())
 
 def changeFunds(type, cost, user):
+    """
+    Changes a given user's money balance
+    :param type: string, "ADD" or "SUBTRACT"
+    :param cost: float, amount to add or subtract
+    :param user: int, user ID # to change
+    :return: float, new balance
+    """
     currentMoney = user_records[user - 1]["usd_balance"]
     if (type == "SUBTRACT"):
         user_records[user - 1]["usd_balance"] = currentMoney - cost
     else:
         user_records[user - 1]["usd_balance"] = currentMoney + cost
+    return user_records[user - 1]["usd_balance"]
 
 def handle_invalid(client_socket, command, details):
     print(f"Received: Invalid command {command}")
@@ -395,10 +403,42 @@ def loadRecords(f):
             "user_id": 1}]
     return data
 
-def handle_shutdown(client_sockt):
+def handle_shutdown(client_socket):
+    print("Received: SHUTDOWN")
+
     #write database csv's
-    df = pd.DAtaFrame(user_records)
-    df.to_csv(USER_RECORDS_FILE)
+    stocksString = convertToCSV("stocks")
+    userString = convertToCSV("users")
+
+    buffer = StringIO(stocksString)
+    reader = csv.reader(buffer, skipinitialspace=True)
+    #Write to file. Currently writing to stocks2 to debug. Needs to change to original filename: STOCK_RECORDS_FILE
+    with open('stocks2.csv', 'w') as out_file:
+        writer = csv.writer(out_file)
+        writer.writerows(reader)
+
+def convertToCSV(database):
+    stringToReturn = ""
+
+    #create header based on type
+    if database == "stocks":
+        stringToReturn = "ID,stock_symbol,stock_name,shares,stock_balance,user_id\n"
+        # loop through rest of array to create rows in CSV
+        for record in stock_records:
+            stringToReturn += str(record["ID"]) + "," + record["stock_symbol"] + "," + record["stock_name"] + "," + str(record["shares"]) + ","
+            stringToReturn += str(record["stock_balance"]) + "," + str(record["user_id"])
+            #if record["ID"] != len(stock_records) - 1: #new line only if not last record- not needed?
+            #    stringToReturn += "\n"
+    elif database == "users":
+        stringToReturn = "ID,first_name,last_name,user_name,password,usd_balance\n"
+        #loop through rest of array to create rows in CSV
+        for record in user_records:
+            stringToReturn += str(record["ID"]) + "," + record["first_name"] + "," + record["last_name"] + "," + record["user_name"] + ","
+            stringToReturn += str(record["password"]) + "," + str(record["usd_balance"])
+            #if record["ID"] != len(stock_records) - 1:  #new line only if not last record- not needed?
+            #    stringToReturn += "\n"
+
+    return stringToReturn
 
 
 run_server()
