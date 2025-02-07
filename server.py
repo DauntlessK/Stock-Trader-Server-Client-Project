@@ -171,13 +171,20 @@ def handle_buy(client_socket, params, stock_str=None):
             recordCreated = True
     # create array of stock info to insert if existing record was not created
     if not recordCreated:
-        stockToBuy = [len(stock_records) + 1, stock["stock_symbol"], stock["stock_name"], shares, stock["stock_price"], user]
+        stockToBuy = {
+        "ID": len(stock_records) + 1,
+        "stock_symbol": stock["stock_symbol"],
+        "stock_name": stock["stock_name"],
+        "shares": str(shares),  # Convert to string to match existing format
+        "stock_balance": stock["stock_price"],
+        "user_id": user
+        } #  len(stock_records) + 1, stock["stock_symbol"], stock["stock_name"], shares, stock["stock_price"], user}
         # insert into stock
         stock_records.append(stockToBuy)
 
     #update user's usd balance
     moneyRequired = shares * stock["stock_price"]
-    changeFunds("ADD", moneyRequired, user)
+    changeFunds("SUBTRACT", moneyRequired, user)
 
     #Send success message
     client_socket.send("Successful Buy".encode())
@@ -199,13 +206,13 @@ def handle_sell(client_socket, params):
             total_share = record["shares"]
             current_shares = int(total_share) - shares
             record["shares"] = str(current_shares)
-        if record["shares"] == 0:
+        if record["shares"] == 0 or record["shares"] == '0' or record["shares"] == "0":
             indexToDelete = stock["ID"] - 1
             del stock_records[stock["ID"]]
 
     #update user's usd balance
     moneyOwed = shares * stock["stock_price"]
-    changeFunds("SUBTRACT", moneyOwed, user)
+    changeFunds("ADD", moneyOwed, user)
 
     #send success message
     client_socket.send("Successful sell".encode())
