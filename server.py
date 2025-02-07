@@ -1,6 +1,7 @@
 import socket
 import csv
 import locale
+import sys
 from pickle import GLOBAL
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
@@ -211,7 +212,7 @@ def handle_sell(client_socket, params):
             record["shares"] = str(current_shares)
         if record["shares"] == 0 or record["shares"] == '0' or record["shares"] == "0":
             indexToDelete = stock["ID"] - 1
-            del stock_records[stock["ID"]]
+            del stock_records[indexToDelete]
 
     #update user's usd balance
     moneyOwed = shares * stock["stock_price"]
@@ -389,7 +390,7 @@ def loadRecords(f):
             row["ID"] = recordCount
             recordCount += 1
             if f == USER_RECORDS_FILE:
-                row["usd_balance"] = int(row["usd_balance"])
+                row["usd_balance"] = float(row["usd_balance"])
             elif f == STOCK_RECORDS_FILE:
                 row["stock_balance"] = float(row["stock_balance"])
                 row["user_id"] = int(row["user_id"])
@@ -445,6 +446,7 @@ def handle_shutdown(client_socket):
                     record["usd_balance"]])
 
     client_socket.send("200 OK\n".encode())
+    sys.exit()
 
 
 run_server()
