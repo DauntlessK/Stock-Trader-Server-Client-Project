@@ -2,16 +2,13 @@ import socket
 
 SERVER_ADDRESS = "" # IP of server
 SERVER_PORT = 7715  # Chosen port number
+index = 0
 
 def connect_to_server ():
     #Creates a socket that attempts to connect to server
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect(("localhost", SERVER_PORT))
     print("Attempting to connect server port", SERVER_PORT)
-
-    #if socket.error:
-    #   print("Unable to connect to server")
-    #   exit(-1)
 
     #Calls to handle interactions to server, once done, socket closes
     handle_interaction(client_socket)
@@ -30,24 +27,28 @@ def handle_messages(client_input, client):
 
 
 def handle_buy(client_input, client):
+    #Sends info to server to buy
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
     print(information, '\n')
 
 def handle_sell(client_input, client):
+    #Sends info to server to sell
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
     print(information, '\n')
 
 def handle_shutdown(client_input, client):
     #Handles the shutdown which lets server know it wants to disconnect
+    global index
+    index = 1
     client.send(client_input.encode())
     new_message = client.recv(1024).decode().strip()
     print(new_message)
 
-
 def handle_interaction (client):
     #Determines what the client input is and sends messages and info according to the input
+    global index
     while True:
         print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT")
         print("Buy and sell structure: BUY/SELL StockSymbol Shares UserID", '\n')
@@ -63,8 +64,11 @@ def handle_interaction (client):
                 handle_sell(client_input, client)
             case "SHUTDOWN":
                 handle_shutdown(client_input, client)
-            case "QUIT":
-                break
+            case "QUIT": #Breaks once user has inputted and already has inputed SHUTDOWN
+                if index == 1:
+                    break
+                else:
+                    print("Need to SHUTDOWN first")
             case _:
                 print("Invalid Command", '\n')
 

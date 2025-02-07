@@ -406,39 +406,24 @@ def loadRecords(f):
 def handle_shutdown(client_socket):
     print("Received: SHUTDOWN")
 
-    #write database csv's
-    stocksString = convertToCSV("stocks")
-    userString = convertToCSV("users")
-
-    buffer = StringIO(stocksString)
-    reader = csv.reader(buffer, skipinitialspace=True)
     #Write to file. Currently writing to stocks2 to debug. Needs to change to original filename: STOCK_RECORDS_FILE
-    with open('stocks2.csv', 'w') as out_file:
+    #Since this will write rows, we set for newline, Then writes to the rows into csvfile using writer
+    with open('stocks.csv', 'w', newline='') as out_file:
         writer = csv.writer(out_file)
-        writer.writerows(reader)
-
-def convertToCSV(database):
-    stringToReturn = ""
-
-    #create header based on type
-    if database == "stocks":
-        stringToReturn = "ID,stock_symbol,stock_name,shares,stock_balance,user_id\n"
-        # loop through rest of array to create rows in CSV
+        writer.writerow(["ID", "stock_symbol", "stock_name", "shares", "stock_balance", "user_id"])  # Write header
         for record in stock_records:
-            stringToReturn += str(record["ID"]) + "," + record["stock_symbol"] + "," + record["stock_name"] + "," + str(record["shares"]) + ","
-            stringToReturn += str(record["stock_balance"]) + "," + str(record["user_id"])
-            #if record["ID"] != len(stock_records) - 1: #new line only if not last record- not needed?
-            #    stringToReturn += "\n"
-    elif database == "users":
-        stringToReturn = "ID,first_name,last_name,user_name,password,usd_balance\n"
-        #loop through rest of array to create rows in CSV
-        for record in user_records:
-            stringToReturn += str(record["ID"]) + "," + record["first_name"] + "," + record["last_name"] + "," + record["user_name"] + ","
-            stringToReturn += str(record["password"]) + "," + str(record["usd_balance"])
-            #if record["ID"] != len(stock_records) - 1:  #new line only if not last record- not needed?
-            #    stringToReturn += "\n"
+            writer.writerow(
+                [record["ID"], record["stock_symbol"], record["stock_name"], record["shares"], record["stock_balance"],
+                 record["user_id"]])
 
-    return stringToReturn
+    # Write user records using the same method as stocks
+    with open('users.csv', 'w', newline='') as out_file:
+        writer = csv.writer(out_file)
+        writer.writerow(["ID", "first_name", "last_name", "user_name", "password", "usd_balance"])  # Write header
+        for record in user_records:
+            writer.writerow(
+                [record["ID"], record["first_name"], record["last_name"], record["user_name"], record["password"],
+                    record["usd_balance"]])
 
 
 run_server()
