@@ -5,7 +5,9 @@ SERVER_PORT = 7715  # Chosen port number
 index = 0
 
 def connect_to_server ():
-    #Creates a socket that attempts to connect to server
+    """
+    Creates a socket that attempts to connect to server
+    """
     client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     client_socket.connect(("localhost", SERVER_PORT))
     print("Attempting to connect server port", SERVER_PORT)
@@ -17,7 +19,12 @@ def connect_to_server ():
 
 
 def handle_messages(client_input, client):
-    #handles commands with two message interactions
+    """
+    Handles commands with two message interactions
+    :param client_input: string
+    :param client:
+    :return:
+    """
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
     print(information, '\n')
@@ -27,19 +34,31 @@ def handle_messages(client_input, client):
 
 
 def handle_buy(client_input, client):
-    #Sends info to server to buy
+    """
+    Sends info to server to buy
+    :param client_input: string
+    :param client:
+    """
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
     print(information, '\n')
 
 def handle_sell(client_input, client):
-    #Sends info to server to sell
+    """
+    Sends info to server to sell
+    :param client_input: string
+    :param client:
+    """
     client.send(client_input.encode())
     information = client.recv(1024).decode().strip()
     print(information, '\n')
 
 def handle_shutdown(client_input, client):
-    #Handles the shutdown which lets server know it wants to disconnect
+    """
+    Handles the shutdown which lets server know it wants to disconnect
+    :param client_input: string
+    :param client:
+    """
     global index
     index = 1
     client.send(client_input.encode())
@@ -47,7 +66,10 @@ def handle_shutdown(client_input, client):
     print(new_message)
 
 def handle_interaction (client):
-    #Determines what the client input is and sends messages and info according to the input
+    """
+    Determines what the client input is and sends messages and info according to the input
+    :param client:
+    """
     global index
     while True:
         print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT")

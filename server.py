@@ -1,7 +1,6 @@
 import socket
 import csv
 import locale
-from io import StringIO
 from pickle import GLOBAL
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
@@ -40,10 +39,8 @@ def run_server():
 def handle_client(client_socket):
     """
     Called when a client connection is accepted.
-    It receives the command from the client and checks if it is MSGGET or MSGSTORE.
-    Depending on the command, it calls the corresponding handler function.
+    Loops continuiously waiting for commands from the client, then performs the command.
     :param client_socket:
-    :return:
     """
     while True:
         command = client_socket.recv(1024).decode().strip()
@@ -85,7 +82,6 @@ def handle_msgget(client_socket):
     Responsible for handling the MSGGET command from the client.
     Sends response "200 OK"
     :param client_socket:
-    :return:
     """
     response = "200 OK\n"
     client_socket.send(response.encode())
@@ -96,7 +92,6 @@ def handle_msgstore(client_socket):
     Sends the response "200 OK" to the client to signal message can be sent.
     Then, the message is received from the client using the client socket and prints the message.
     :param client_socket:
-    :return:
     """
     client_socket.send("200 OK\n".encode())
     new_message = client_socket.recv(1024).decode().strip()
@@ -106,7 +101,6 @@ def handle_balance(client_socket):
     """
     Responsible for displaying the balance in USD for the user.
     :param client_socket:
-    :return:
     """
     print("Received: BALANCE")
     client_socket.send("200 OK\n".encode())
@@ -120,7 +114,6 @@ def handle_list(client_socket):
     """
     Responsible for displaying the list of stocks the user owns.
     :param client_socket:
-    :return:
     """
     print("Received: LIST")
     client_socket.send("200 OK\n".encode())
@@ -140,7 +133,6 @@ def handle_market(client_socket):
     """
     Responsible for displaying the list of currently available stocks to purchase on the market
     :param client_socket:
-    :return:
     """
     print("Received: MARKET")
     client_socket.send("200 OK\n".encode())
@@ -154,6 +146,11 @@ def handle_market(client_socket):
     client_socket.send(toSend.encode())
 
 def handle_buy(client_socket, params, stock_str=None):
+    """
+    Handles BUY command. Finds the record in stocks, and adds the shares. Adds record if no record exists.
+    :param client_socket:
+    :param params: Array of original command from client
+    """
     stock_symbol = params[1]
     shares = int(params[2])
     user = int(params[3])
@@ -194,6 +191,12 @@ def handle_buy(client_socket, params, stock_str=None):
 
 
 def handle_sell(client_socket, params):
+    """
+    Handles SELL command. Finds the record in stocks, and deducts the shares. Removes record
+    if at 0 shares.
+    :param client_socket:
+    :param params: Array of original command from client
+    """
     stock_symbol = params[1]
     shares = int(params[2])
     user = int(params[3])
@@ -236,10 +239,21 @@ def changeFunds(type, cost, user):
     return user_records[user - 1]["usd_balance"]
 
 def handle_invalid(client_socket, command, details):
+    """
+    Handles a command that starts with a valid command (BUY, SELL) but is not formatted correctly.
+    :param client_socket:
+    :param command: string - What the client sent
+    :param details: string - Specific issue with the format
+    """
     print(f"Received: Invalid command {command}")
     client_socket.send(f"403 Message Format Error\n{details}".encode())
 
 def handle_unknownCommand(client_socket, command):
+    """
+    Handles unknown command
+    :param client_socket:
+    :param command: string - COmmand originally sent
+    """
     print("Received Unknown Command: " + command)
     client_socket.send("400 Invalid Command\n".encode())
 
@@ -272,7 +286,7 @@ def validateCommand(client_socket, command, fullCommand):
         handle_invalid(client_socket, command, details)
         return False
 
-    #Check each parameter-------
+    #Check each parameter===============================
     #Check stock symbol
     stockToBuy = fullCommand[1]
     if not isValidStock(stockToBuy):
@@ -289,6 +303,7 @@ def validateCommand(client_socket, command, fullCommand):
         details = f"Invalid {command} command. Enter valid # of shares to purchase."
         handle_invalid(client_socket, command, details)
         return False
+
     #Check valid user
     try:
         user = int(fullCommand[3])
@@ -317,9 +332,11 @@ def validateCommand(client_socket, command, fullCommand):
     #For sell, ensure the user actually owns that stock and that amount of shares
     if fullCommand[0] == "SELL":
         numSharesOwned = 0
-        for transaction in stock_records:
+        #Count shares
+        for transaction in stock_records: #for loop goes through stock list, but how they're stored doesn't really need to be loop
             if transaction["stock_symbol"] == stockToBuy and transaction["user_id"] == user:
                 numSharesOwned += 1
+        #Check if user doesn't own shares at all of that stock
         if numSharesOwned == 0:
             command = "INVALID"
             details = f"Invalid {command} command. User does not have any shares of {stockToBuy}."
@@ -332,8 +349,6 @@ def validateCommand(client_socket, command, fullCommand):
             handle_invalid(client_socket, command, details)
             return False
         return True
-
-
 
 def isValidStock(stockToCheck):
     """
@@ -404,6 +419,10 @@ def loadRecords(f):
     return data
 
 def handle_shutdown(client_socket):
+    """
+    Handles shutdown request from client. Will write back stocks and user files to their csv then close.
+    :param client_socket:
+    """
     print("Received: SHUTDOWN")
 
     #Write to file. Currently writing to stocks2 to debug. Needs to change to original filename: STOCK_RECORDS_FILE
@@ -424,6 +443,8 @@ def handle_shutdown(client_socket):
             writer.writerow(
                 [record["ID"], record["first_name"], record["last_name"], record["user_name"], record["password"],
                     record["usd_balance"]])
+
+    client_socket.send("200 OK\n".encode())
 
 
 run_server()
