@@ -169,8 +169,8 @@ def handle_buy(client_socket, params, stock_str=None):
     for record in stock_records:
         if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
             number_shares = record["shares"]
-            total_shares = shares + int(number_shares)
-            record["shares"] = str(total_shares)
+            total_shares = shares + number_shares
+            record["shares"] = total_shares
             recordCreated = True
     # create array of stock info to insert if existing record was not created
     if not recordCreated:
@@ -178,7 +178,7 @@ def handle_buy(client_socket, params, stock_str=None):
         "ID": len(stock_records) + 1,
         "stock_symbol": stock["stock_symbol"],
         "stock_name": stock["stock_name"],
-        "shares": str(shares),  # Convert to string to match existing format
+        "shares": shares,
         "stock_balance": stock["stock_price"],
         "user_id": user
         } #  len(stock_records) + 1, stock["stock_symbol"], stock["stock_name"], shares, stock["stock_price"], user}
@@ -207,7 +207,7 @@ def handle_sell(client_socket, params):
     shares = int(params[2])
     user = int(params[3])
     stock = find_stock(stock_symbol)
-    print(f"Received: SELL {stock} {shares} {user}")
+    print(f"Received: SELL {stock_symbol} {shares} {user}")
 
     # find record
     recordFound = False
@@ -353,7 +353,7 @@ def validateCommand(client_socket, command, fullCommand):
         #Count shares
         for transaction in stock_records: #for loop goes through stock list, but how they're stored doesn't really need to be loop
             if transaction["stock_symbol"] == stockToBuy and transaction["user_id"] == user:
-                numSharesOwned += 1
+                numSharesOwned += transaction["shares"]
         #Check if user doesn't own shares at all of that stock
         if numSharesOwned == 0:
             command = "INVALID"
@@ -361,7 +361,7 @@ def validateCommand(client_socket, command, fullCommand):
             handle_invalid(client_socket, command, details)
             return False
         #Also check if trying to sell more shares than owned
-        elif shares < numSharesOwned:
+        elif shares > numSharesOwned:
             command = "INVALID"
             details = f"Invalid {command} command. User has only {numSharesOwned}. Cannot sell {shares}"
             handle_invalid(client_socket, command, details)
