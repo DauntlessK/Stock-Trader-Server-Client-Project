@@ -5,7 +5,13 @@ SERVER_ADDRESS = "" # IP of server
 SERVER_PORT = 7715  # Chosen port number
 index = 0
 
-def connect_to_server ():
+def start():
+    print("Login to continue.")
+    client_login = input("Login: ")
+    client_pw = input("Password: ")
+    connect_to_server(client_login, client_pw)
+
+def connect_to_server (username, password):
     """
     Creates a socket that attempts to connect to server
     """
@@ -13,12 +19,22 @@ def connect_to_server ():
     client_socket.connect(("localhost", SERVER_PORT))
     print("Attempting to connect server port", SERVER_PORT)
 
-    #Calls to handle interactions to server, once done, socket closes
-    handle_interaction(client_socket)
-    client_socket.close()
-    print("Disconnected from the server port", SERVER_PORT)
-    sys.exit()
+    client_socket.send(username.encode())
+    client_socket.send(password.encode())
 
+    result = client_socket.recv(1024).decode().strip()
+
+    #Calls to handle interactions to server, once done, socket closes
+    print(result, '\n')
+    if "OK" in result:
+        handle_interaction(client_socket)
+        #After done handling interactions
+        print("Disconnected from the server port", SERVER_PORT)
+    else:
+        #Invalid connection
+        print("Terminating program")
+    client_socket.close()
+    sys.exit()
 
 def handle_messages(client_input, client):
     """
@@ -76,10 +92,10 @@ def handle_interaction (client):
         print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT")
         print("Buy and sell structure: BUY/SELL StockSymbol Shares UserID", '\n')
         client_input = input ("Enter Input: ")
-        first_command = client_input.split()
+        client_input_split = client_input.split()
 
         #Handles commands and error checks
-        match (first_command[0]):
+        match (client_input_split[0]):
             case "BALANCE" | "LIST" | "MARKET":
                 if index == 0:
                     handle_messages(client_input, client)
