@@ -2,6 +2,8 @@ import socket
 import csv
 import locale
 import sys
+import threading
+import select
 from pickle import GLOBAL
 
 locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
@@ -14,73 +16,120 @@ MARKET_RECORDS_FILE = "market.csv"
 stock_records = []          #List of stocks owned by users
 user_records = []           #List of users
 market_records = []         #List of stocks available to buy
-
+active_connect = {}         #Track active connections
+lock = threading.Lock()     #For safe thread activities
+serverIndex = 0
 
 def run_server():
     """
     Creates a loop that runs endlessly, waiting for connections.
     """
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1) #to allow reuse of address
     server_socket.bind(("localhost", SERVER_PORT))
-    server_socket.listen(1)
+    server_socket.listen(10) #Set liston to 10 for max of 10 connections
     print("Server is running on port", SERVER_PORT)
-    global stock_records
-    global user_records
-    global market_records
+    global stock_records, user_records, market_records, active_connect, serverIndex, lock
     stock_records = loadRecords(STOCK_RECORDS_FILE)
     user_records = loadRecords(USER_RECORDS_FILE)
     market_records = loadRecords(MARKET_RECORDS_FILE)
 
-    while True:
-        client_socket, client_address = server_socket.accept()
-        print("Accepted connection from:", client_address)
-        handle_client(client_socket)
-        client_socket.close()
+    #Creating a thread pool of 10
+    semaphore = threading.BoundedSemaphore(10)
+    sockets_list = [server_socket]
 
-def handle_client(client_socket):
+    while True:
+
+        if serverIndex == 0:
+            #Read multiple sockets
+            read_sockets,_,_ = select.select(sockets_list, [],[], 1)
+            for soc in read_sockets:
+                if soc == server_socket:
+                    client_socket, client_address = server_socket.accept()
+                    print("Accepted connection from:", client_address)
+                    if semaphore.acquire(blocking=False):
+                        with lock:
+                            #Sets the connection to empty stds and not logged in for future checking
+                            active_connect[client_socket] = {"logged_in": False, "user": None, "ip": client_address[0]}
+                        #create a thread that will the function to handle the client with set params
+                        client_thread = threading.Thread(target=handle_client, args=(client_socket, semaphore))
+                        client_thread.start()
+                    else:
+                        client_socket.close()
+        else:
+            break
+
+    print("Shutting Down Server")
+    #sys.exit()
+    quit()
+
+
+def handle_client(client_socket, semaphore):
     """
     Called when a client connection is accepted.
     Loops continuiously waiting for commands from the client, then performs the command.
+    :param semaphore:
     :param client_socket:
     """
-    while True:
-        try:
-            command = client_socket.recv(1024).decode().strip()
-            fullCommand = command.split()
-            command = fullCommand[0]
-        except:
-            print("Connection disconnected")
-            break
+    global active_connect
+    global lock
 
-        #Split sent command into array of words and make command variable the first word
+    try:
+        userpass = (client_socket.recv(1024).decode().strip()).split()
+        user_name = userpass[0]
+        pass_word = userpass[1]
+        print(f"Recieved {user_name} and {pass_word}")
+        client_socket.send("OK".encode())
+        # TODO: Check and validate password and user
+    except:
+        print("No user and pass recieved, Disconencted")
 
+    try:
+        while True:
+            try:
 
-        # Ensure BUY and SELL is formatted correctly - ensure 4 parameters
-        if command == "BUY" or command == "SELL":
-            valid = validateCommand(client_socket, command, fullCommand)
-            if valid == False:
-                continue
-
-        match (command):
-            case "MSGGET":
-                handle_msgget(client_socket)
-            case "MSGSTORE":
-                handle_msgstore(client_socket)
-            case "BALANCE":
-                handle_balance(client_socket)
-            case "LIST":
-                handle_list(client_socket)
-            case "MARKET":
-                handle_market(client_socket)
-            case "BUY":
-                handle_buy(client_socket, fullCommand)
-            case "SELL":
-                handle_sell(client_socket, fullCommand)
-            case "SHUTDOWN":
-                handle_shutdown(client_socket)
+                command = client_socket.recv(1024).decode().strip()
+                fullCommand = command.split()
+                command = fullCommand[0]
+            except:
+                print("Connection disconnected from")
                 break
-            case _:
-                handle_unknownCommand(client_socket, command)
+
+            #Split sent command into array of words and make command variable the first word
+
+
+            # Ensure BUY and SELL is formatted correctly - ensure 4 parameters
+            if command == "BUY" or command == "SELL":
+                valid = validateCommand(client_socket, command, fullCommand)
+                if valid == False:
+                    continue
+
+            match (command):
+                case "MSGGET":
+                    handle_msgget(client_socket)
+                case "MSGSTORE":
+                    handle_msgstore(client_socket)
+                case "BALANCE":
+                    handle_balance(client_socket)
+                case "LIST":
+                    handle_list(client_socket)
+                case "MARKET":
+                    handle_market(client_socket)
+                case "BUY":
+                    handle_buy(client_socket, fullCommand)
+                case "SELL":
+                    handle_sell(client_socket, fullCommand)
+                case "SHUTDOWN":
+                    handle_shutdown(client_socket)
+                    break
+                case _:
+                    handle_unknownCommand(client_socket, command)
+    finally:
+        with lock:
+            if client_socket in active_connect:
+                del active_connect[client_socket]
+        client_socket.close()
+        semaphore.release()
 
 
 def handle_msgget(client_socket):
@@ -443,6 +492,7 @@ def handle_shutdown(client_socket):
     :param client_socket:
     """
     print("Received: SHUTDOWN")
+    global serverIndex
 
     #Write to file. Currently writing to stocks2 to debug. Needs to change to original filename: STOCK_RECORDS_FILE
     #Since this will write rows, we set for newline, Then writes to the rows into csvfile using writer
@@ -464,7 +514,8 @@ def handle_shutdown(client_socket):
                     record["usd_balance"]])
 
     client_socket.send("200 OK\n".encode())
-    sys.exit()
+    serverIndex = 1
+    #sys.exit()
 
 
 run_server()
