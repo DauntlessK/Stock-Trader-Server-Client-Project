@@ -106,7 +106,8 @@ def handle_client(client_socket, client_address, semaphore):
             # Ensure BUY and SELL is formatted correctly - ensure 3 parameters
             if command == "BUY" or command == "SELL":
                 if not validCommand(client_socket, activeUser, command, fullCommand):
-                    print("INVALID")
+                    #TODO does a message need to be sent to client here?
+                    continue
 
             match (command):
                 case "MSGGET":
@@ -210,7 +211,6 @@ def handle_buy(client_socket, user, params, stock_str=None):
     :param client_socket:
     :param params: Array of original command from client
     """
-    print("HANDLING")
     stock_symbol = params[1]
     shares = int(params[2])
     stock = find_stock(stock_symbol)
@@ -233,7 +233,7 @@ def handle_buy(client_socket, user, params, stock_str=None):
         "stock_name": stock["stock_name"],
         "shares": shares,
         "stock_balance": stock["stock_price"],
-        "user_id": user
+        "user_id": user["ID"]
         } #  len(stock_records) + 1, stock["stock_symbol"], stock["stock_name"], shares, stock["stock_price"], user}
         # insert into stock
         stock_records.append(stockToBuy)
@@ -404,7 +404,7 @@ def validCommand(client_socket, user, command, fullCommand):
             details = f"Invalid {command} command. You only have {numSharesOwned} shares. Cannot sell {shares}"
             handle_invalid(client_socket, command, details)
             return False
-        return True
+    return True
 
 def isValidStock(stockToCheck):
     """
