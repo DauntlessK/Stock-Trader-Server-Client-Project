@@ -52,7 +52,7 @@ def run_server():
                             #Sets the connection to empty stds and not logged in for future checking
                             active_connect[client_socket] = {"logged_in": False, "user": None, "ip": client_address[0]}
                         #create a thread that will the function to handle the client with set params
-                        client_thread = threading.Thread(target=handle_client, args=(client_socket, semaphore))
+                        client_thread = threading.Thread(target=handle_client, args=(client_socket, client_address, semaphore))
                         client_thread.start()
                     else:
                         client_socket.close()
@@ -64,7 +64,7 @@ def run_server():
     quit()
 
 
-def handle_client(client_socket, semaphore):
+def handle_client(client_socket, client_address, semaphore):
     """
     Called when a client connection is accepted.
     Loops continuiously waiting for commands from the client, then performs the command.
@@ -79,30 +79,34 @@ def handle_client(client_socket, semaphore):
         user_name = userpass[0]
         pass_word = userpass[1]
         print(f"Recieved {user_name} and {pass_word}")
-        client_socket.send("OK".encode())
-        # TODO: Check and validate password and user
+        if isValidSignIn(user_name, pass_word):
+            client_socket.send("200 OK\n".encode())
+            activeUser = getUserByUsername(user_name)
+        else:
+            client_socket.send("401 Invalid Username / Password".encode())
+            raise ValueError("Invalid username / password")
+    except ValueError as e:
+        print("Invalid username / password received, Disconnected")
     except:
-        print("No user and pass recieved, Disconencted")
+        print("No username and password recieved, Disconencted")
 
     try:
         while True:
             try:
-
                 command = client_socket.recv(1024).decode().strip()
                 fullCommand = command.split()
                 command = fullCommand[0]
             except:
-                print("Connection disconnected from")
+                print("Connection disconnected from:", client_address)
                 break
 
             #Split sent command into array of words and make command variable the first word
 
 
-            # Ensure BUY and SELL is formatted correctly - ensure 4 parameters
+            # Ensure BUY and SELL is formatted correctly - ensure 3 parameters
             if command == "BUY" or command == "SELL":
-                valid = validateCommand(client_socket, command, fullCommand)
-                if valid == False:
-                    continue
+                if not validCommand(client_socket, activeUser, command, fullCommand):
+                    print("INVALID")
 
             match (command):
                 case "MSGGET":
@@ -110,15 +114,15 @@ def handle_client(client_socket, semaphore):
                 case "MSGSTORE":
                     handle_msgstore(client_socket)
                 case "BALANCE":
-                    handle_balance(client_socket)
+                    handle_balance(client_socket, activeUser)
                 case "LIST":
-                    handle_list(client_socket)
+                    handle_list(client_socket, activeUser)
                 case "MARKET":
                     handle_market(client_socket)
                 case "BUY":
-                    handle_buy(client_socket, fullCommand)
+                    handle_buy(client_socket, activeUser, fullCommand)
                 case "SELL":
-                    handle_sell(client_socket, fullCommand)
+                    handle_sell(client_socket, activeUser, fullCommand)
                 case "SHUTDOWN":
                     handle_shutdown(client_socket)
                     break
@@ -152,7 +156,7 @@ def handle_msgstore(client_socket):
     new_message = client_socket.recv(1024).decode().strip()
     print("Received new message:", new_message)
 
-def handle_balance(client_socket):
+def handle_balance(client_socket, user):
     """
     Responsible for displaying the balance in USD for the user.
     :param client_socket:
@@ -160,12 +164,12 @@ def handle_balance(client_socket):
     print("Received: BALANCE")
     client_socket.send("200 OK\n".encode())
 
-    fullName = user_records[0]["first_name"] + " " + user_records[0]["last_name"]
-    formatted_balance = locale.currency(user_records[0]["usd_balance"], grouping=True)
+    fullName = user["first_name"] + " " + user["last_name"]
+    formatted_balance = locale.currency(user["usd_balance"], grouping=True)
     bal = str(formatted_balance)
     client_socket.send(f"Balance for user {fullName}: {bal}\n".encode())
 
-def handle_list(client_socket):
+def handle_list(client_socket, user):
     """
     Responsible for displaying the list of stocks the user owns.
     :param client_socket:
@@ -174,10 +178,10 @@ def handle_list(client_socket):
     client_socket.send("200 OK\n".encode())
 
     #Create string of all records of owned stocks in database
-    toSend = "The list of records in the Stocks database for user 1:\n"
+    toSend = f"The list of records in the Stocks database for {user['first_name']} {user['last_name']}:\n"
     count = 0
     for record in stock_records:
-        if (record["user_id"] == 1):
+        if (record["user_id"] == user["ID"]):
             count += 1
             cost = locale.currency(record["stock_balance"], grouping=True)
             toSend += str(count) + "  " + record["stock_symbol"] + " " + str(record["shares"]) + " @ " +\
@@ -200,17 +204,17 @@ def handle_market(client_socket):
                   str(cost) + "\n"
     client_socket.send(toSend.encode())
 
-def handle_buy(client_socket, params, stock_str=None):
+def handle_buy(client_socket, user, params, stock_str=None):
     """
     Handles BUY command. Finds the record in stocks, and adds the shares. Adds record if no record exists.
     :param client_socket:
     :param params: Array of original command from client
     """
+    print("HANDLING")
     stock_symbol = params[1]
     shares = int(params[2])
-    user = int(params[3])
     stock = find_stock(stock_symbol)
-    print(f"Received: BUY {stock_symbol} {shares} {user}")
+    print(f"Received: BUY {stock_symbol} {shares}")
 
     # First, check to see if the user already owns at least one share of that stock
     # If so, simply add more shares to that record
@@ -245,7 +249,7 @@ def handle_buy(client_socket, params, stock_str=None):
     client_socket.send(f"200 OK\nBOUGHT {shares} SHARES OF {stock_symbol}. New balance: {newBalance}".encode())
 
 
-def handle_sell(client_socket, params):
+def handle_sell(client_socket, user, params):
     """
     Handles SELL command. Finds the record in stocks, and deducts the shares. Removes record
     if at 0 shares.
@@ -254,15 +258,14 @@ def handle_sell(client_socket, params):
     """
     stock_symbol = params[1]
     shares = int(params[2])
-    user = int(params[3])
     stock = find_stock(stock_symbol)
-    print(f"Received: SELL {stock_symbol} {shares} {user}")
+    print(f"Received: SELL {stock_symbol} {shares}")
 
     # find record
     recordFound = False
     for record in stock_records:
         #Find record to remove stocks from
-        if record["stock_symbol"] == stock_symbol and record["user_id"] == user:
+        if record["stock_symbol"] == stock_symbol and record["user_id"] == user["ID"]:
             total_shares = record["shares"]
             current_shares = total_shares - shares
             record["shares"] = current_shares
@@ -295,15 +298,15 @@ def changeFunds(type, cost, user):
     Changes a given user's money balance
     :param type: string, "ADD" or "SUBTRACT"
     :param cost: float, amount to add or subtract
-    :param user: int, user ID # to change
+    :param user: user record
     :return: float, new balance
     """
-    currentMoney = user_records[user - 1]["usd_balance"]
+    currentMoney = user["usd_balance"]
     if (type == "SUBTRACT"):
-        user_records[user - 1]["usd_balance"] = currentMoney - cost
+        user["usd_balance"] = currentMoney - cost
     else:
-        user_records[user - 1]["usd_balance"] = currentMoney + cost
-    return user_records[user - 1]["usd_balance"]
+        user["usd_balance"] = currentMoney + cost
+    return user["usd_balance"]
 
 def handle_invalid(client_socket, command, details):
     """
@@ -319,7 +322,7 @@ def handle_unknownCommand(client_socket, command):
     """
     Handles unknown command
     :param client_socket:
-    :param command: string - COmmand originally sent
+    :param command: string - Command originally sent
     """
     print("Received Unknown Command: " + command)
     client_socket.send("400 Invalid Command\n".encode())
@@ -336,7 +339,7 @@ def find_stock(stockToBuy):
             return record
 
 
-def validateCommand(client_socket, command, fullCommand):
+def validCommand(client_socket, user, command, fullCommand):
     """
     Makes sure the given command, BUY or SELL is in the correct format, while also ensuring the user can
     actually buy or sell whatever it is they're trying to buy or sell.
@@ -346,10 +349,10 @@ def validateCommand(client_socket, command, fullCommand):
     :return: True if buy or sell command CAN be performed
     """
     #Check for valid # of params (should be 4)
-    if (len(fullCommand)) != 4:
+    if (len(fullCommand)) != 3:
         command = "INVALID"
-        details = f"Invalid {command} command. Please format as: 'BUY STK 3 1' \n " +\
-                  f"Where {command} is the command, STK is the symbol, 3 is # of shares, and 1 is your user ID."
+        details = f"Invalid {command} command. Please format as: 'BUY STK 3' \n " +\
+                  f"Where {command} is the command, STK is the symbol, and 3 is # of shares."
         handle_invalid(client_socket, command, details)
         return False
 
@@ -371,26 +374,12 @@ def validateCommand(client_socket, command, fullCommand):
         handle_invalid(client_socket, command, details)
         return False
 
-    #Check valid user
-    try:
-        user = int(fullCommand[3])
-        if not isValidUser(user):
-            command = "INVALID"
-            details = f"Invalid {command} command. User {user} does not exist."
-            handle_invalid(client_socket, command, details)
-            return False
-    except:
-        command = "INVALID"
-        details = f"Invalid {command} command. Enter valid # for the user."
-        handle_invalid(client_socket, command, details)
-        return False
-
     #For buy, ensure buyer has enough money
     if fullCommand[0] == "BUY":
         current_stock = find_stock(stockToBuy)
         moneyRequired = shares * float(current_stock["stock_price"])
-        val = user_records[user - 1]["usd_balance"]
-        if  val < moneyRequired:
+        wallet = user["usd_balance"]
+        if  wallet < moneyRequired:
             command = "INVALID"
             details = f"Invalid {command} command. User does not have enough $."
             handle_invalid(client_socket, command, details)
@@ -400,19 +389,19 @@ def validateCommand(client_socket, command, fullCommand):
     if fullCommand[0] == "SELL":
         numSharesOwned = 0
         #Count shares
-        for transaction in stock_records: #for loop goes through stock list, but how they're stored doesn't really need to be loop
-            if transaction["stock_symbol"] == stockToBuy and transaction["user_id"] == user:
-                numSharesOwned += transaction["shares"]
+        for stockRecord in stock_records: #for loop goes through stock list, but how they're stored doesn't really need to be loop
+            if stockRecord["stock_symbol"] == stockToBuy and stockRecord["user_id"] == user["ID"]:
+                numSharesOwned += stockRecord["shares"]
         #Check if user doesn't own shares at all of that stock
         if numSharesOwned == 0:
             command = "INVALID"
-            details = f"Invalid {command} command. User does not have any shares of {stockToBuy}."
+            details = f"Invalid {command} command. You do not have any shares of {stockToBuy}."
             handle_invalid(client_socket, command, details)
             return False
         #Also check if trying to sell more shares than owned
         elif shares > numSharesOwned:
             command = "INVALID"
-            details = f"Invalid {command} command. User has only {numSharesOwned}. Cannot sell {shares}"
+            details = f"Invalid {command} command. You only have {numSharesOwned} shares. Cannot sell {shares}"
             handle_invalid(client_socket, command, details)
             return False
         return True
@@ -428,6 +417,17 @@ def isValidStock(stockToCheck):
             return True
     return False
 
+def getUserByUsername(username):
+    """
+    Gets a user's info by username and returns it (entire dictionary line)
+    Assumes user is valid
+    :param username:
+    :return: user file
+    """
+    for user in user_records:
+        if user["user_name"] == username:
+            return user
+
 def isValidUser(userToCheck):
     """
     Checks if the given user exists in the users database)
@@ -438,6 +438,16 @@ def isValidUser(userToCheck):
         #Convert to string in order to compare
         strUser = str(userToCheck)
         if user["ID"] == userToCheck:
+            return True
+    return False
+
+def isValidSignIn(userToCheck, pw):
+    """
+    Checks if the user (which is attempting to log in) is valid, with an existing username and matching password
+    :return: true if a username with matching password is found
+    """
+    for user in user_records:
+        if user["user_name"] == userToCheck and user["password"] == pw:
             return True
     return False
 
