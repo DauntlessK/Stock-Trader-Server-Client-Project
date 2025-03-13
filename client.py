@@ -89,7 +89,7 @@ def handle_interaction (client):
     global index
     while True:
         print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT")
-        print("Buy and sell structure: BUY/SELL StockSymbol Shares", '\n')
+        print("Buy and sell structure: BUY/SELL Shares StockSymbol", '\n')
         client_input = input ("Enter Input: ")
         client_input_split = client_input.split()
 

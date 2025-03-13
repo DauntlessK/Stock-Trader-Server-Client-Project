@@ -179,14 +179,26 @@ def handle_list(client_socket, user):
     client_socket.send("200 OK\n".encode())
 
     #Create string of all records of owned stocks in database
+    #First establish each section length for the table
+    recordLengthTotal = 5
+    symbolLengthTotal = 7
+    sharesLengthTotal = 9
+    costLengthTotal = 11
     toSend = f"The list of records in the Stocks database for {user['first_name']} {user['last_name']}:\n"
     count = 0
     for record in stock_records:
         if (record["user_id"] == user["ID"]):
             count += 1
             cost = locale.currency(record["stock_balance"], grouping=True)
-            toSend += str(count) + "  " + record["stock_symbol"] + " " + str(record["shares"]) + " @ " +\
-                      str(cost) + " " + str(record["user_id"]) + "\n"
+
+            recordSection = centeredTextLine(str(count), recordLengthTotal)
+            symbolSection = centeredTextLine(record["stock_symbol"], symbolLengthTotal)
+            sharesSection = centeredTextLine(str(record["shares"]), sharesLengthTotal)
+            costSection = centeredTextLine(str(cost), costLengthTotal)
+
+            cost = locale.currency(record["stock_balance"], grouping=True)
+            toSend += recordSection + "|" + symbolSection + "|" + sharesSection + " @ " +\
+                      costSection + "|  " + str(record["user_id"]) + "\n"
     client_socket.send(toSend.encode())
 
 def handle_market(client_socket):
@@ -211,10 +223,10 @@ def handle_buy(client_socket, user, params, stock_str=None):
     :param client_socket:
     :param params: Array of original command from client
     """
-    stock_symbol = params[1]
-    shares = int(params[2])
+    stock_symbol = params[2]
+    shares = int(params[1])
     stock = find_stock(stock_symbol)
-    print(f"Received: BUY {stock_symbol} {shares}")
+    print(f"Received: BUY {shares} {stock_symbol}")
 
     # First, check to see if the user already owns at least one share of that stock
     # If so, simply add more shares to that record
@@ -256,10 +268,10 @@ def handle_sell(client_socket, user, params):
     :param client_socket:
     :param params: Array of original command from client
     """
-    stock_symbol = params[1]
-    shares = int(params[2])
+    stock_symbol = params[2]
+    shares = int(params[1])
     stock = find_stock(stock_symbol)
-    print(f"Received: SELL {stock_symbol} {shares}")
+    print(f"Received: SELL {shares} {stock_symbol}")
 
     # find record
     recordFound = False
@@ -358,16 +370,16 @@ def validCommand(client_socket, user, command, fullCommand):
 
     #Check each parameter===============================
     #Check stock symbol
-    stockToBuy = fullCommand[1]
+    stockToBuy = fullCommand[2]
     if not isValidStock(stockToBuy):
         command = "INVALID"
-        details = f"Invalid {command} command. Stock {fullCommand[1]} does not exist."
+        details = f"Invalid {command} command. Stock {fullCommand[2]} does not exist."
         handle_invalid(client_socket, command, details)
         return False
 
     #Check share count purchase
     try:
-        shares = int(fullCommand[2])
+        shares = int(fullCommand[1])
     except:
         command = "INVALID"
         details = f"Invalid {command} command. Enter valid # of shares to purchase."
@@ -450,6 +462,24 @@ def isValidSignIn(userToCheck, pw):
         if user["user_name"] == userToCheck and user["password"] == pw:
             return True
     return False
+
+def centeredTextLine(text, totalSpace):
+    """
+    Creates a full string with the information (text) centered in white space equal to the total space's length
+    :param text: string of text
+    :param totalSpace: Size (in characters) of the space the text belongs (total)
+    :return: a string of text, centered in space char
+    """
+    spaceOnEachSide = (totalSpace - len(str(text))) // 2
+    toReturn = ""
+    for x in range (spaceOnEachSide):
+        toReturn += " "
+    toReturn += text
+    if (len(str(text)) % 2 == 0):
+        spaceOnEachSide = spaceOnEachSide + 1
+    for x in range (spaceOnEachSide):
+        toReturn += " "
+    return toReturn
 
 
 def loadRecords(f):
