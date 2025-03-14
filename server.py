@@ -111,9 +111,9 @@ def handle_lookup(client_socket, activeUser, fullCommand):
             toSend += recordSection + "|" + symbolSection + "|" + sharesSection + " @ " + \
                       costSection + "|  " + "\n"
     if count != 0:
-        client_socket.send(f"Found {count} matches '\n{toSend}".encode())
+        client_socket.send(f"Found {count} match:\n{toSend}".encode())
     else:
-        client_socket.sned("404 Your search did not match any records".encode())
+        client_socket.send("404 Your search did not match any records".encode())
 
 
 def handle_who(client_socket, activeUser):
@@ -127,7 +127,7 @@ def handle_who(client_socket, activeUser):
     if activeUser["user_name"] == "Root":
         for active in active_connect.values():
             if active["logged_in"]:
-                toSend += f"{active["user"]}      {active["ip"]}\n"
+                toSend += f"{active['user']}      {active['ip']}\n"
         client_socket.send(toSend.encode())
     else:
         client_socket.send("400 Unauthorized command\n".encode())
