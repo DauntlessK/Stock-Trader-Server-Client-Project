@@ -6,10 +6,16 @@ SERVER_PORT = 7715  # Chosen port number
 index = 0
 
 def start():
-    print("Login to continue.")
-    client_login = input("Login: ")
-    client_pw = input("Password: ")
-    connect_to_server(client_login, client_pw)
+    while True:
+        inpt = input("Enter LOGIN or QUIT: ")
+        if  inpt == "LOGIN":
+            client_login = input("Login: ")
+            client_pw = input("Password: ")
+            connect_to_server(client_login, client_pw)
+        elif inpt == "QUIT":
+            sys.exit()
+        else:
+            print("Please enter a valid input \n")
 
 def connect_to_server (username, password):
     """
@@ -29,11 +35,11 @@ def connect_to_server (username, password):
         handle_interaction(client_socket)
         #After done handling interactions
         print("Disconnected from the server port", SERVER_PORT)
+        client_socket.close()
     else:
         #Invalid connection
         print("Terminating program")
-    client_socket.close()
-    sys.exit()
+        client_socket.close()
 
 def handle_messages(client_input, client):
     """
@@ -75,11 +81,54 @@ def handle_shutdown(client_input, client):
     :param client_input: string
     :param client:
     """
+
     global index
-    index = 1
+
     client.send(client_input.encode())
     new_message = client.recv(1024).decode().strip()
-    print(new_message)
+    msg = new_message.split()
+    if not msg[0] == "400":
+        index = 1
+    print(new_message, '\n')
+
+
+def handle_deposit(client_input, client):
+    """
+       Handles the deposit telling server it wants money deposited
+       :param client_input: string
+       :param client:
+       """
+    client.send(client_input.encode())
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+
+
+def handle_lookUP(client_input, client):
+    """
+       Handles the lookup allowing users to lookup record they own with the stock symbol
+       :param client_input: string
+       :param client:
+       """
+    client.send(client_input.encode())
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+
+
+def handle_who(client_input, client):
+    """
+           Handles hidden function WHO which shows the root who is currently logged in
+           :param client_input: string
+           :param client:
+           """
+    client.send(client_input.encode())
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+    information = client.recv(1024).decode().strip()
+    print(information, '\n')
+
+
 
 def handle_interaction (client):
     """
@@ -88,32 +137,35 @@ def handle_interaction (client):
     """
     global index
     while True:
-        print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, SHUTDOWN, QUIT")
-        print("Buy and sell structure: BUY/SELL StockSymbol Shares UserID", '\n')
+        print("Please enter input, commands available: BALANCE, LIST, MARKET, BUY, SELL, DEPOSIT, LOOKUP, QUIT")
+        print("Buy and sell structure: BUY/SELL Shares StockSymbol")
+        print("LOOKUP structure: LOOKUP StockSymbol, EX: LOOKUP IBM", '\n')
         client_input = input ("Enter Input: ")
         client_input_split = client_input.split()
 
         #Handles commands and error checks
         match (client_input_split[0]):
             case "BALANCE" | "LIST" | "MARKET":
-                if index == 0:
-                    handle_messages(client_input, client)
-                else:
-                    print("SHUTDOWN already called")
+                handle_messages(client_input, client)
             case "BUY":
-                if index == 0:
-                    handle_buy(client_input, client)
-                else:
-                    print("SHUTDOWN already called")
+                handle_buy(client_input, client)
+            case "DEPOSIT":
+                handle_deposit(client_input, client)
             case "SELL":
-                if index == 0:
-                    handle_sell(client_input, client)
-                else:
-                    print("SHUTDOWN already called")
+                handle_sell(client_input, client)
+            case "WHO":
+                handle_who(client_input, client)
+            case "LOOKUP":
+                handle_lookUP(client_input, client)
+            case "LOGOUT":
+                break
             case "SHUTDOWN":
                 handle_shutdown(client_input, client)
-                break
+                if index == 1:
+                    client.close()
+                    sys.exit()
             case "QUIT":
+                client.close()
                 sys.exit()
             case _:
                 print("Invalid Command", '\n')

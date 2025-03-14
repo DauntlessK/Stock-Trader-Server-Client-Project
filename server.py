@@ -64,6 +64,74 @@ def run_server():
     quit()
 
 
+def handle_deposit(client_socket, activeUser, fullCommand):
+    """
+            Handles deposit when user wants to deposit money
+            :param fullCommand:
+            :param activeUser:
+            :param client_socket:
+            """
+
+    moneyRequired = float(fullCommand[1])
+    newBalance = changeFunds("ADD", moneyRequired, activeUser)
+    newBalance = locale.currency(newBalance, grouping=True)
+    client_socket.send(f"Deposit successful. New balance: {newBalance}".encode())
+
+
+def handle_lookup(client_socket, activeUser, fullCommand):
+    """
+        Handles the look-up of a specific record in the users records
+        :param fullCommand:
+        :param activeUser:
+        :param client_socket:
+        """
+
+    print("Received: LOOKUP")
+    client_socket.send("200 OK\n".encode())
+
+    # Create string of all records of owned stocks in database
+    # First establish each section length for the table
+    recordLengthTotal = 5
+    symbolLengthTotal = 7
+    sharesLengthTotal = 9
+    costLengthTotal = 11
+    toSend = ""
+    count = 0
+    for record in stock_records:
+        if (record["user_id"] == activeUser["ID"]) and (record["stock_symbol"] == fullCommand[1]):
+            count += 1
+            cost = locale.currency(record["stock_balance"], grouping=True)
+
+            recordSection = centeredTextLine(str(count), recordLengthTotal)
+            symbolSection = centeredTextLine(record["stock_symbol"], symbolLengthTotal)
+            sharesSection = centeredTextLine(str(record["shares"]), sharesLengthTotal)
+            costSection = centeredTextLine(str(cost), costLengthTotal)
+
+            cost = locale.currency(record["stock_balance"], grouping=True)
+            toSend += recordSection + "|" + symbolSection + "|" + sharesSection + " @ " + \
+                      costSection + "|  " + "\n"
+    if count != 0:
+        client_socket.send(f"Found {count} matches '\n{toSend}".encode())
+    else:
+        client_socket.sned("404 Your search did not match any records".encode())
+
+
+def handle_who(client_socket, activeUser):
+    """
+       Allows to root user to see who is actively logged in
+       :param activeUser:
+       :param client_socket:
+       """
+    client_socket.send("200 OK\n".encode())
+    toSend = "The list of active users: \n"
+    if activeUser["user_name"] == "Root":
+        for active in active_connect.values():
+            if active["logged_in"]:
+                toSend += f"{active["user"]}      {active["ip"]}\n"
+        client_socket.send(toSend.encode())
+    else:
+        client_socket.send("400 Unauthorized command\n".encode())
+
 def handle_client(client_socket, client_address, semaphore):
     """
     Called when a client connection is accepted.
@@ -71,8 +139,8 @@ def handle_client(client_socket, client_address, semaphore):
     :param semaphore:
     :param client_socket:
     """
-    global active_connect
-    global lock
+    activeUser = ""
+    global active_connect, lock
 
     try:
         userpass = (client_socket.recv(1024).decode().strip()).split()
@@ -82,6 +150,9 @@ def handle_client(client_socket, client_address, semaphore):
         if isValidSignIn(user_name, pass_word):
             client_socket.send("200 OK\n".encode())
             activeUser = getUserByUsername(user_name)
+            with lock:
+                active_connect[client_socket]["logged_in"] = True
+                active_connect[client_socket]["user"] = activeUser["first_name"]
         else:
             client_socket.send("401 Invalid Username / Password".encode())
             raise ValueError("Invalid username / password")
@@ -106,7 +177,7 @@ def handle_client(client_socket, client_address, semaphore):
             # Ensure BUY and SELL is formatted correctly - ensure 3 parameters
             if command == "BUY" or command == "SELL":
                 if not validCommand(client_socket, activeUser, command, fullCommand):
-                    #TODO does a message need to be sent to client here?
+                    #TODO does a message need to be sent to client here? - Dont think so, validation already sends message
                     continue
 
             match (command):
@@ -118,18 +189,25 @@ def handle_client(client_socket, client_address, semaphore):
                     handle_balance(client_socket, activeUser)
                 case "LIST":
                     handle_list(client_socket, activeUser)
+                case "DEPOSIT":
+                    handle_deposit(client_socket, activeUser, fullCommand)
                 case "MARKET":
                     handle_market(client_socket)
+                case "WHO":
+                    handle_who(client_socket, activeUser)
                 case "BUY":
                     handle_buy(client_socket, activeUser, fullCommand)
                 case "SELL":
                     handle_sell(client_socket, activeUser, fullCommand)
+                case "LOOKUP":
+                    handle_lookup(client_socket, activeUser, fullCommand)
                 case "SHUTDOWN":
-                    handle_shutdown(client_socket)
+                    handle_shutdown(client_socket, activeUser)
                     break
                 case _:
                     handle_unknownCommand(client_socket, command)
     finally:
+        #Removes thread and closes socket safely with lock
         with lock:
             if client_socket in active_connect:
                 del active_connect[client_socket]
@@ -185,9 +263,28 @@ def handle_list(client_socket, user):
     sharesLengthTotal = 9
     costLengthTotal = 11
     toSend = f"The list of records in the Stocks database for {user['first_name']} {user['last_name']}:\n"
+    toSendRoot = f"The list of records in the Stocks database of all users. \n"
     count = 0
+    name = ""
     for record in stock_records:
-        if (record["user_id"] == user["ID"]):
+        if user["ID"] == 3:
+            count += 1
+            cost = locale.currency(record["stock_balance"], grouping=True)
+
+            recordSection = centeredTextLine(str(count), recordLengthTotal)
+            symbolSection = centeredTextLine(record["stock_symbol"], symbolLengthTotal)
+            sharesSection = centeredTextLine(str(record["shares"]), sharesLengthTotal)
+            costSection = centeredTextLine(str(cost), costLengthTotal)
+
+            for use in user_records:
+                if use["ID"] == record["user_id"]:
+                    name = use["first_name"]
+                    break
+
+            cost = locale.currency(record["stock_balance"], grouping=True)
+            toSendRoot += recordSection + "|" + symbolSection + "|" + sharesSection + " @ " + \
+                      costSection + "|  " + name + "\n"
+        elif (record["user_id"] == user["ID"]):
             count += 1
             cost = locale.currency(record["stock_balance"], grouping=True)
 
@@ -198,8 +295,11 @@ def handle_list(client_socket, user):
 
             cost = locale.currency(record["stock_balance"], grouping=True)
             toSend += recordSection + "|" + symbolSection + "|" + sharesSection + " @ " +\
-                      costSection + "|  " + str(record["user_id"]) + "\n"
-    client_socket.send(toSend.encode())
+                      costSection + "|  "  + "\n"
+    if user["ID"] == 3:
+        client_socket.send(toSendRoot.encode())
+    else:
+        client_socket.send(toSend.encode())
 
 def handle_market(client_socket):
     """
@@ -526,36 +626,40 @@ def loadRecords(f):
             "user_id": 1}]
     return data
 
-def handle_shutdown(client_socket):
+def handle_shutdown(client_socket, active_user):
     """
     Handles shutdown request from client. Will write back stocks and user files to their csv then close.
+    :param active_user:
     :param client_socket:
     """
-    print("Received: SHUTDOWN")
-    global serverIndex
+    if active_user["user_name"] == "Root":
+        print("Received: SHUTDOWN")
+        global serverIndex
 
-    #Write to file. Currently writing to stocks2 to debug. Needs to change to original filename: STOCK_RECORDS_FILE
-    #Since this will write rows, we set for newline, Then writes to the rows into csvfile using writer
-    with open('stocks.csv', 'w', newline='') as out_file:
-        writer = csv.writer(out_file)
-        writer.writerow(["ID", "stock_symbol", "stock_name", "shares", "stock_balance", "user_id"])  # Write header
-        for record in stock_records:
-            writer.writerow(
-                [record["ID"], record["stock_symbol"], record["stock_name"], record["shares"], record["stock_balance"],
-                 record["user_id"]])
+        #Write to file. Currently writing to stocks2 to debug. Needs to change to original filename: STOCK_RECORDS_FILE
+        #Since this will write rows, we set for newline, Then writes to the rows into csvfile using writer
+        with open('stocks.csv', 'w', newline='') as out_file:
+            writer = csv.writer(out_file)
+            writer.writerow(["ID", "stock_symbol", "stock_name", "shares", "stock_balance", "user_id"])  # Write header
+            for record in stock_records:
+                writer.writerow(
+                    [record["ID"], record["stock_symbol"], record["stock_name"], record["shares"], record["stock_balance"],
+                     record["user_id"]])
 
-    # Write user records using the same method as stocks
-    with open('users.csv', 'w', newline='') as out_file:
-        writer = csv.writer(out_file)
-        writer.writerow(["ID", "first_name", "last_name", "user_name", "password", "usd_balance"])  # Write header
-        for record in user_records:
-            writer.writerow(
-                [record["ID"], record["first_name"], record["last_name"], record["user_name"], record["password"],
-                    record["usd_balance"]])
+        # Write user records using the same method as stocks
+        with open('users.csv', 'w', newline='') as out_file:
+            writer = csv.writer(out_file)
+            writer.writerow(["ID", "first_name", "last_name", "user_name", "password", "usd_balance"])  # Write header
+            for record in user_records:
+                writer.writerow(
+                    [record["ID"], record["first_name"], record["last_name"], record["user_name"], record["password"],
+                        record["usd_balance"]])
 
-    client_socket.send("200 OK\n".encode())
-    serverIndex = 1
-    #sys.exit()
+        client_socket.send("200 OK\n".encode())
+        serverIndex = 1
+        #sys.exit()
+    else:
+        client_socket.send("400 Not authorized to SHUTDOWN".encode())
 
 
 run_server()

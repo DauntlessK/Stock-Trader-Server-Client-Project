@@ -3,3 +3,5 @@ ID,stock_symbol,stock_name,shares,stock_balance,user_id
 2,AMD,Advanced Mirco Devices Inc.,15,119.5,1
 3,GOOG,Alphabet Inc.,2,207.71,1
 4,NFLX,Netflix Inc.,4,994.87,1
+5,F,Ford Motor Company,1,10.16,2
+6,GOOG,Alphabet Inc.,2,207.71,2
