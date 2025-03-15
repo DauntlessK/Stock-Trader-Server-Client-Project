@@ -1,13 +1,13 @@
 # StockTrader
-Networking Project 1 - Stock Trading
+Networking Project 2 - Stock Trading: Multiple clients with threads and select
 
 #Student Info
 Alexis Chavez-Guzman: alexiz@umich.edu
 Kyle Breen-Bondie: kylebb@umich.edu
 
 #Introduction:
-Program implements a stock trading network that work on TCP sockets wth a client-server architecture.
-Program is implemented in a Windows platform. The server handles client inputs which are predefined. These commands are from BUY, SELL, LIST, BALANCE, and MARKET.
+Program implements a stock trading network that work on TCP sockets wth an upgraded multiple client to server architecture.
+Program is implemented in a Windows platform. The server handles client inputs which are predefined. The commands added to the previous existing roster are LOKOKUP, WHO, DEPOSIT, LOGIN, LOGOUT, and changes to previous commands.
 Implements a CSV file for the stock market data and user data. Program has small changes such as including the concept of shares, as well as a market which holds a list of stocks that can be bought and their prices. 
 Server is implemented in a localhost with a designated port.
 
@@ -15,24 +15,24 @@ Server is implemented in a localhost with a designated port.
 Install python3 if not already installed.
 Run the server script first.
 Run the client script next.
+Run the second client next.
+Log in into both clients using a username and password.
 After succesfull connection, interaction can begin.
-To disconnect from server, enter QUIT.
-To shutdown server, enter SHUTDOWN.
+To disconnect from server, enter QUIT or LOGOUT.
+To shutdown server, root user must enter SHUTDOWN.
 
 #Student's Role
 
 #Alexis Chavez-Guzman:
-Implemented the following features: The connection to the server from client, predefined command inputs, client closing and disconnecting, 
-and small error handling for the commands. 
-Other Responsibilities: Responsible for general debugging and code fixing on both server and client side.
+Implemented the following features: Method handling of the commands LOOKUP, WHO, and DEPOSIT. Added error handling and tesing for these commands on both server and client.
+Other Responsibilities: Resposible for implementing a multiple client functions using threads and select.
+
 #Kyle Breen-Bondie:
-Implemented the following features: The establishment of server and handling of client, handling of commands in the server, csv files where data is stored,
-error handling for BUY and SELL commands, csv file reading, and csv file storing.
-Other Responsibilities: Responsible for debugging server issues and other bug fixes.
+Implemented the following features: Method handling for the LOGIN and LOGOUT commands while changing to older commands to fit requirments and a multiple client structure.
+Other Responsibilities: Responsible for major debugging of the system and issues with commands, both old and new commands.
 
 #Bugs
-Two bugs that were not fully fixed.
-Forceful detachment from server crashes the server. Terminating the client early causes an execption.
+Only one bug found: 
 Client crashes when ran before the server, the server must run first as the client doesn't connect.
 
 #Youtube link to video
