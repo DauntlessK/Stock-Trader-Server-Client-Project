@@ -60,8 +60,7 @@ def run_server():
             break
 
     print("Shutting Down Server")
-    #sys.exit()
-    quit()
+    sys.exit()
 
 
 def handle_deposit(client_socket, activeUser, fullCommand):
@@ -203,7 +202,8 @@ def handle_client(client_socket, client_address, semaphore):
                     handle_lookup(client_socket, activeUser, fullCommand)
                 case "SHUTDOWN":
                     handle_shutdown(client_socket, activeUser)
-                    break
+                    if serverIndex == 1:
+                        break
                 case _:
                     handle_unknownCommand(client_socket, command)
     finally:
